@@ -33,34 +33,27 @@ Step-by-step instructions for starting a new project from the `node-auth-boilerp
 
 1. In your Railway project, click **"+ New"** → **"Database"** → **"PostgreSQL"**
 2. Wait for the database to provision
-3. Click the database service → **"Connect"** tab
-4. Note the **connection string** (used as `MIGRATION_DATABASE_URL` in Step 5)
+3. Reference the DB into the app service in Step 7 — no manual connection string needed
 
 ---
 
-## Step 4 — Create database users
+## Step 4 — Database users (no manual SQL)
 
-1. In Railway, go to the database service → **"Query"** tab (or connect via psql)
-2. Note the database name from the connection string
-3. Run the following SQL — replace the passwords with strong random strings:
+You do **not** create database users by hand. The design is:
 
-```sql
--- Migration user (DDL privileges)
-CREATE USER migration_user WITH PASSWORD 'REPLACE_WITH_STRONG_PASSWORD';
-GRANT CONNECT ON DATABASE YOUR_DB_NAME TO migration_user;
-GRANT CREATE ON SCHEMA public TO migration_user;
+- **Migrations** run as Railway's built-in `postgres` superuser — that is what
+  `MIGRATION_DATABASE_URL` points at (`${{Postgres.DATABASE_URL}}`).
+- **The running app** connects as a limited `app_user` (SELECT/INSERT/UPDATE/DELETE
+  only). `src/scripts/migrate.js` creates that role from the `APP_USER_PASSWORD`
+  env var on every deploy, and `004_create_app_user.sql` grants its privileges.
 
--- App user (DML only — no DDL)
-CREATE USER app_user WITH PASSWORD 'REPLACE_WITH_STRONG_PASSWORD';
-GRANT CONNECT ON DATABASE YOUR_DB_NAME TO app_user;
-GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_user;
-ALTER DEFAULT PRIVILEGES FOR ROLE migration_user IN SCHEMA public
-  GRANT SELECT, INSERT, UPDATE, DELETE ON TABLES TO app_user;
+So all you do is set `APP_USER_PASSWORD` (see Step 7). Generate one with:
+
+```bash
+node -e "console.log(require('crypto').randomBytes(24).toString('base64url'))"
 ```
 
-4. Build the two connection strings you will need:
-   - `MIGRATION_DATABASE_URL` — same host/port/db as Railway's default URL but with `migration_user` credentials
-   - `DATABASE_URL` — same host/port/db but with `app_user` credentials
+It must match `[A-Za-z0-9_-]`, at least 16 chars (it is interpolated into `CREATE USER`).
 
 ---
 
@@ -96,12 +89,16 @@ Run it twice — one value for `JWT_SECRET`, one for `SESSION_SECRET`.
 
 In your Railway project, go to the app service → **"Variables"** tab and add:
 
+Generate a public domain first (service → **Settings → Networking → Generate
+Domain**) so `${{RAILWAY_PUBLIC_DOMAIN}}` resolves. Then, in the **Raw Editor**:
+
 ```
 NODE_ENV=production
 PORT=3000
 
-DATABASE_URL=postgresql://app_user:PASSWORD@HOST:PORT/DB_NAME
-MIGRATION_DATABASE_URL=postgresql://migration_user:PASSWORD@HOST:PORT/DB_NAME
+APP_USER_PASSWORD=<base64url from Step 4>
+DATABASE_URL=postgresql://app_user:${{APP_USER_PASSWORD}}@${{Postgres.RAILWAY_PRIVATE_DOMAIN}}:5432/${{Postgres.PGDATABASE}}
+MIGRATION_DATABASE_URL=${{Postgres.DATABASE_URL}}
 
 JWT_SECRET=<64-char hex from Step 5>
 JWT_ACCESS_EXPIRES_IN=10m
@@ -110,7 +107,7 @@ REFRESH_TOKEN_MAX_AGE_SECONDS=604800
 
 GOOGLE_CLIENT_ID=<from Step 6>
 GOOGLE_CLIENT_SECRET=<from Step 6>
-GOOGLE_CALLBACK_URL=https://YOUR-RAILWAY-DOMAIN/auth/google/callback
+GOOGLE_CALLBACK_URL=https://${{RAILWAY_PUBLIC_DOMAIN}}/auth/google/callback
 
 SESSION_SECRET=<64-char hex from Step 5>
 
@@ -120,8 +117,8 @@ SMTP_USER=noreply@example.com
 SMTP_PASS=<smtp password>
 EMAIL_FROM=noreply@example.com
 
-APP_URL=https://YOUR-RAILWAY-DOMAIN
-CORS_ORIGINS=https://YOUR-RAILWAY-DOMAIN
+APP_URL=https://${{RAILWAY_PUBLIC_DOMAIN}}
+CORS_ORIGINS=https://${{RAILWAY_PUBLIC_DOMAIN}}
 ```
 
 ---
