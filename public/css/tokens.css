@@ -1,0 +1,56 @@
+/* Outfitler – gränssnittspalett. Enda källan till sanning för färg.
+   Se plan/outfitler_overview.md §6. Princip: låg mättnad, neutral grund,
+   EN dämpad accent, semantiska färger enbart som återkoppling. Lägg aldrig
+   in råa hex-värden i sidornas CSS – använd variablerna nedan. */
+:root {
+  /* Neutraler */
+  --bg: #FAFAF8;          /* Porslin – appens bakgrund */
+  --surface: #FFFFFF;     /* Ren vit – kort/ytor som bär plaggbilder */
+  --surface-2: #EEEDE9;   /* Dimma – input-fält, hover, sekundära ytor */
+  --border: #DAD8D2;      /* Kalksten – kanter och avdelare */
+  --text-muted: #6E6B64;  /* Sten – sekundär text, ikoner, platshållare */
+  --text: #33322F;        /* Grafit – primär brödtext */
+  --text-strong: #1C1C1B; /* Kol – rubriker, hög betoning */
+
+  /* Accent – endast en */
+  --accent: #42566A;         /* Skifferblå – primära knappar, länkar, fokusram */
+  --accent-hover: #374757;   /* mörkare Skifferblå för hover/aktiv */
+  --accent-subtle: #E6EBEF;  /* Skiffer ljus – valt/aktivt tillstånd */
+  --on-accent: #FFFFFF;      /* text ovanpå accent */
+
+  /* Semantiska – endast återkoppling, aldrig dekoration */
+  --success: #5C7C5A;  /* Salvia – sparat, positivt */
+  --warning: #B3893F;  /* Ockra – varning */
+  --danger: #A65450;   /* Tegel – destruktiv åtgärd, fel */
+
+  --radius: 8px;
+  --shadow: 0 2px 10px rgba(28, 28, 27, 0.08);
+}
+
+@media (prefers-color-scheme: dark) {
+  :root {
+    --bg: #1A1A19;
+    --surface: #242422;
+    --surface-2: #2E2E2B;
+    --border: #3A3934;
+    --text-muted: #A6A29A;
+    --text: #EDEBE6;
+    --text-strong: #EDEBE6;
+
+    --accent: #8FA6BA;
+    --accent-hover: #A3B6C7;
+    --accent-subtle: #2B3642;
+    --on-accent: #1A1A19;
+
+    --success: #89A886;
+    --warning: #D3AA63;
+    --danger: #C98984;
+
+    --shadow: 0 2px 10px rgba(0, 0, 0, 0.35);
+  }
+}
+
+body {
+  background: var(--bg);
+  color: var(--text);
+}
