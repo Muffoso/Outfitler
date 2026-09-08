@@ -33,6 +33,7 @@ samling plagg, också med betyg och taggar.
 - `id`, `user_id`
 - `name` – kort etikett (obligatoriskt)
 - `rating` – 1–5, nullable
+- `notes` – frittextkommentar, nullable
 - `created_at`, `updated_at`
 - kopplas till plagg via `outfit_garments` (många-till-många, med `position`
   för visningsordning). Ingen egen bild – visas som sina plaggs bilder.

@@ -35,7 +35,7 @@ Dokumenterad i [`outfitler_overview.md`](outfitler_overview.md) §2. Sammanfattn
   §7), `rating` (SMALLINT 1–5, nullable), `notes` (fritext, nullable),
   `archived` (bool), `created_at`, `updated_at`. **Inget** namn/kategori/färg/märke.
 - **outfit:** `id`, `user_id`, `name` (obligatoriskt), `rating` (1–5, nullable),
-  tidsstämplar. Ingen egen bild.
+  `notes` (fritext, nullable), tidsstämplar. Ingen egen bild.
 - **tagg (tag):** `id`, `user_id`, `name` – unik per användare, skiftlägesokänsligt;
   skapas implicit när den sätts.
 - **betyg:** kolumn på `garment` och `outfit`, ingen egen tabell.
@@ -63,7 +63,8 @@ Tre filer, stil som migration 005: idempotent (`IF NOT EXISTS`), explicit
   - `GRANT SELECT, INSERT, UPDATE, DELETE ON garments TO app_user;`
 - [ ] `src/db/migrations/007_create_outfits.sql`
   - `outfits`: `id`, `user_id` (FK CASCADE), `name TEXT NOT NULL`,
-    `rating SMALLINT CHECK (rating BETWEEN 1 AND 5)`, `created_at`, `updated_at`
+    `rating SMALLINT CHECK (rating BETWEEN 1 AND 5)`, `notes TEXT`,
+    `created_at`, `updated_at`
   - `outfit_garments`: `outfit_id UUID REFERENCES outfits(id) ON DELETE CASCADE`,
     `garment_id UUID REFERENCES garments(id) ON DELETE CASCADE`,
     `position SMALLINT NOT NULL DEFAULT 0`,
@@ -101,10 +102,10 @@ inte finns eller inte ägs av användaren. Montera alla tre i `src/app.js` **fö
     (ersätter taggsättet)
   - `DELETE /api/garments/:id`
 - [ ] `src/services/outfitService.js` + `src/routes/outfits.js`
-  - `POST   /api/outfits` – `name`, `garmentIds[]`, `rating?`, `tags[]?`
+  - `POST   /api/outfits` – `name`, `garmentIds[]`, `rating?`, `notes?`, `tags[]?`
   - `GET    /api/outfits` – filter `?tag=`, `?rating=`
   - `GET    /api/outfits/:id` – inkl. ingående plagg (med bild-URL:er efter Fas 5)
-  - `PATCH  /api/outfits/:id` – `name`, `rating`, `garmentIds[]`, `tags[]`
+  - `PATCH  /api/outfits/:id` – `name`, `rating`, `notes`, `garmentIds[]`, `tags[]`
   - `DELETE /api/outfits/:id`
 - [ ] `src/services/tagService.js` + `src/routes/tags.js`
   - `GET    /api/tags` – användarens taggar + antal användningar
@@ -211,7 +212,7 @@ inte finns eller inte ägs av användaren. Montera alla tre i `src/app.js` **fö
   och en visad som sina plaggs `thumb`-bilder.
 - [ ] Bygg-vy: välj plagg ur garderoben, ge outfiten `name`, spara via
   `POST /api/outfits`.
-- [ ] Redigera: lägg till/ta bort plagg, betygsätt, tagga.
+- [ ] Redigera: lägg till/ta bort plagg, betygsätt, tagga, fritext (`notes`).
 - [ ] Verifiera live: skapa outfit av plagg med bild → syns i listan → redigera →
   radera.
 
