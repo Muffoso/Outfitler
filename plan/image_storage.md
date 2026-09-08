@@ -12,6 +12,7 @@
   strippa EXIF (GPS!), transkoda allt till WebP.
 - **Arkivkopia:** nedskalad till max 2560 px långsida (inte orörd original).
 - **Derivat:** `thumb` 500 px och `card` 1000 px, genereras direkt vid uppladdning.
+- **En bild per plagg.** Vill man byta bild ersätter man den befintliga.
 - **Uppladdningstak:** 20 MB/fil. Tillåtna typer: JPEG, PNG, WebP, HEIC/HEIF.
 - **Abstraktionslager:** ett litet `ImageStore`-interface så R2 kan bytas mot
   disk / S3 / B2 utan att röra applogiken.
@@ -47,6 +48,10 @@ Argument:
 
 Flöde: klienten laddar upp till `/api/images` → appen bearbetar med `sharp` →
 lägger `archive` + derivat i R2 → metadata till Postgres.
+
+Byte av bild: samma endpoint. Nytt `imageId` (ny nyckel-prefix) genereras så
+URL:en ändras och den oföränderliga cachen inte krockar; den gamla bildens
+objekt raderas ur R2 efter att den nya skrivits och metadatan uppdaterats.
 
 Argument:
 
@@ -97,8 +102,7 @@ fördubbla antalet filer. `srcset` med 2×-varianter kan läggas till senare.
   utan att bjuda in missbruk.
 - **Tillåtna typer:** `image/jpeg`, `image/png`, `image/webp`, `image/heic`,
   `image/heif`. Allt annat avvisas direkt.
-- Gräns på **8 bilder per plagg** (mjuk gräns, kan höjas) för att hålla vyer och
-  kostnad i schack – se avsnitt 10.
+- **Exakt en bild per plagg** – se avsnitt 10.
 
 ## 5. URL:er, åtkomst och integritet
 
@@ -133,22 +137,27 @@ Miljövariabler (Railway): `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
 
 Hör ihop med avsnitt 2 i [`outfitler_overview.md`](outfitler_overview.md).
 
+Eftersom det är exakt en bild per plagg läggs bildfälten direkt på
+`garment`-raden – ingen separat tabell behövs:
+
 ```
-image (
-  id           uuid pk,
-  user_id      fk,
-  garment_id   fk null,     -- alt. outfit_id; polymorft eller två kolumner
-  key_prefix   text,        -- users/{userId}/.../{imageId}
-  variants     jsonb,       -- { thumb: {w,h}, card: {w,h}, archive: {w,h} }
-  orig_width   int,
-  orig_height  int,
-  bytes        int,
-  content_hash text,        -- dedupe + integritetskoll
-  created_at   timestamptz
+garment (
+  ...
+  image_key_prefix text null,   -- users/{userId}/garments/{garmentId}/{imageId}
+  image_variants   jsonb null,  -- { thumb: {w,h}, card: {w,h}, archive: {w,h} }
+  image_width      int null,
+  image_height     int null,
+  image_bytes      int null,
+  image_hash       text null,   -- integritetskoll
+  image_updated_at timestamptz null
 )
 ```
 
-Spara bara `key_prefix` + variantkarta; bygg URL:erna vid läsning.
+Spara bara `image_key_prefix` + variantkarta; bygg URL:erna vid läsning.
+
+Om outfits senare ska ha egen bild görs samma sak på `outfit`-raden. En separat
+`image`-tabell införs bara om något plagg/outfit ska ha flera bilder – vilket
+inte är planerat.
 
 ## 8. Backup
 
@@ -176,15 +185,15 @@ Cloudflares publika R2-priser (kontrollerad jan 2026 – verifiera på
 Ingen obligatorisk minimiavgift – R2 ingår i Workers Free-planen (kort krävs,
 men $0 under gratisnivån).
 
-Antaganden: varje uppladdad bild → 3 lagrade objekt (thumb ~25 KB + card ~90 KB
-+ archive ~400 KB ≈ **0,5 MB/bild**) och ~3–4 skrivoperationer. Läsningar träffar
-R2 bara vid cache-miss.
+Antaganden: en bild per plagg → 3 lagrade objekt (thumb ~25 KB + card ~90 KB
++ archive ~400 KB ≈ **0,5 MB/plagg**) och ~3–4 skrivoperationer per uppladdning.
+Läsningar träffar R2 bara vid cache-miss. Aktiv användare ≈ 500 plagg.
 
 | Skala | Lagring | Månadskostnad |
 |---|---|---|
-| **Bara jag** (~750 bilder, ~375 MB) | inom gratis | **$0** |
-| **100 aktiva användare** (~37 GB) | 27 GB × $0,015 | **~$0,40–1** |
-| **1 000 aktiva användare** (~375 GB) | $5,50 lagring + läsningar ~$10–13 + skrivtoppar vid onboarding | **~$18–25** |
+| **Bara jag** (~500 plagg, ~250 MB) | inom gratis | **$0** |
+| **100 aktiva användare** (~25 GB) | 15 GB × $0,015 | **~$0,25–0,70** |
+| **1 000 aktiva användare** (~250 GB) | $3,60 lagring + läsningar ~$7–10 + skrivtoppar vid onboarding | **~$12–18** |
 
 Tumregel: **~$0,015 per GB lagrad + ~$0,36 per miljon bildladdningar som missar
 cachen.** Solo-fallet ligger inom gratisnivån i praktiken för alltid.
@@ -240,13 +249,16 @@ Cloudflare AI) och en kostnad. `archive`-kopian bevarar möjligheten. Designa
 bildpipelinen (avsnitt 2) så att ett sådant steg kan skjutas in senare utan
 omskrivning.
 
-### 5. Max 8 bilder per plagg
+### 5. Exakt en bild per plagg
 
-**Beslut:** mjuk gräns på 8 bilder per plagg.
+**Beslut:** ett plagg har noll eller en bild. Vill man ha en annan bild
+ersätter man den befintliga (ladda upp ny → gammal raderas).
 
-Motivering: räcker för fram-/baksida, detalj, på kroppen och lappbild. Håller
-detaljvyn hanterbar och kostnaden förutsägbar. Kan höjas senare utan
-migrering.
+Motivering: håller datamodellen platt (bildfälten ligger direkt på
+`garment`-raden, avsnitt 7), garderobsvyn och detaljvyn blir enkla, och
+lagrings- och operationskostnaden blir helt förutsägbar. Ingen bildkarusell,
+ingen "välj huvudbild"-logik. Om behovet av flera bilder dyker upp senare är
+det en avgränsad utökning (separat `image`-tabell + galleri-UI).
 
 ### 6. Uppladdning via appen (inte presignerad PUT) i v1
 

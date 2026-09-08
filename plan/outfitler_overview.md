@@ -38,8 +38,11 @@ bearbetning med `sharp` vid uppladdning (EXIF-rotering + strippning, transkoda
 till WebP), varianter `thumb`/`card`/`archive`, uppladdningstak 20 MB samt
 `ImageStore`-abstraktion så leverantören kan bytas.
 
+**En bild per plagg** – bildfälten ligger direkt på `garment`-raden, och byte
+av bild ersätter den befintliga.
+
 Besluten (R2 från start, alltid nedskalad `archive`, signerade URL:er,
-bakgrundsborttagning senare, max 8 bilder/plagg, uppladdning via appen) med
+bakgrundsborttagning senare, en bild per plagg, uppladdning via appen) med
 motivering finns i avsnitt 10 i det dokumentet.
 
 ## 5. UI-vyer
