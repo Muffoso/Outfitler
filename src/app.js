@@ -43,6 +43,9 @@ app.use(passport.session());
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/auth', require('./routes/oauth'));
+app.use('/api/garments', app.locals.limiters.general, require('./routes/garments'));
+app.use('/api/outfits', app.locals.limiters.general, require('./routes/outfits'));
+app.use('/api/tags', app.locals.limiters.general, require('./routes/tags'));
 
 // Static files (last, so API routes take precedence). "/" serves public/index.html.
 app.use(express.static('public'));

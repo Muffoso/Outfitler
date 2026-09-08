@@ -91,12 +91,14 @@ Tre filer, stil som migration 005: idempotent (`IF NOT EXISTS`), explicit
 
 ## Fas 3 – API (utan bild)
 
-Alla routes: `requireAuth`, zod-validering (mönster som `routes/auth.js`), varje
+Alla routes: `requireAuth`, zod-validering (delad `middleware/validate.js`), varje
 fråga filtrerad på `req.user.id`, `app.locals.limiters.general`. 404 om raden
-inte finns eller inte ägs av användaren. Montera alla tre i `src/app.js` **före**
-`express.static`.
+inte finns eller inte ägs av användaren. Skrivningar med taggar/plagg går i
+transaktion (`src/db/withTransaction.js`). `:id` som inte är en UUID → 404
+(`router.param`). Alla tre monterade i `src/app.js` före `express.static`.
+CORS-metoderna utökade med `PATCH` i `middleware/security.js`.
 
-- [ ] `src/services/garmentService.js` + `src/routes/garments.js`
+- [x] `src/services/garmentService.js` + `src/routes/garments.js`
   - `POST   /api/garments` – skapar tomt plagg; body får innehålla `rating`,
     `notes`, `tags[]`
   - `GET    /api/garments` – filter `?tag=`, `?rating=`, `?archived=`
@@ -104,16 +106,18 @@ inte finns eller inte ägs av användaren. Montera alla tre i `src/app.js` **fö
   - `PATCH  /api/garments/:id` – `rating`, `notes`, `archived`, `tags[]`
     (ersätter taggsättet)
   - `DELETE /api/garments/:id`
-- [ ] `src/services/outfitService.js` + `src/routes/outfits.js`
+- [x] `src/services/outfitService.js` + `src/routes/outfits.js`
   - `POST   /api/outfits` – `name`, `garmentIds[]`, `rating?`, `notes?`, `tags[]?`
   - `GET    /api/outfits` – filter `?tag=`, `?rating=`
   - `GET    /api/outfits/:id` – inkl. ingående plagg (med bild-URL:er efter Fas 5)
   - `PATCH  /api/outfits/:id` – `name`, `rating`, `notes`, `garmentIds[]`, `tags[]`
   - `DELETE /api/outfits/:id`
-- [ ] `src/services/tagService.js` + `src/routes/tags.js`
+- [x] `src/services/tagService.js` + `src/routes/tags.js`
   - `GET    /api/tags` – användarens taggar + antal användningar
   - `DELETE /api/tags/:id` – tar bort taggen och alla dess kopplingar
   - get-or-create per namn (skiftlägesokänsligt) när taggar sätts via garment/outfit
+- [x] Route-, validerings- och serialiseringslagret verifierat lokalt med stubbad
+  pool (22 fall: auth, validering, `:id`-UUID, CRUD, taggning, outfit-ägarkoll).
 - [ ] Verifiera live med inloggad token: skapa plagg → sätt betyg + tagg → skapa
   outfit av två plagg → betygsätt outfit → filtrera plagg på tagg → `GET /api/tags`.
 
