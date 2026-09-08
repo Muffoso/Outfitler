@@ -1,6 +1,7 @@
 import { initAuth, logout } from './auth.js';
 import {
-  api, jsonHeaders, starRow, tagChips, tagAddForm, spacer, wearSection, createTagFilter,
+  api, jsonHeaders, starRow, tagChips, tagAddForm, spacer, wearSection,
+  createTagFilter, createSortMenu,
 } from './shared.js';
 
 await initAuth();
@@ -8,13 +9,13 @@ await initAuth();
 const grid = document.getElementById('grid');
 const empty = document.getElementById('empty');
 const detail = document.getElementById('detail');
-const sortBy = document.getElementById('sortBy');
 const filterRating = document.getElementById('filterRating');
 
 const MAX_RATING = 10;
 
 const state = { outfits: [], garmentsById: new Map(), tags: [] };
 const tagFilter = createTagFilter(document.getElementById('tagFilter'), 'outfits', loadOutfits);
+const sortMenu = createSortMenu(document.getElementById('sortBy'), loadOutfits);
 
 for (let n = MAX_RATING; n >= 1; n--) {
   const opt = document.createElement('option');
@@ -25,7 +26,6 @@ for (let n = MAX_RATING; n >= 1; n--) {
 
 document.getElementById('logoutBtn').addEventListener('click', () => logout());
 document.getElementById('newBtn').addEventListener('click', createOutfit);
-sortBy.addEventListener('change', loadOutfits);
 filterRating.addEventListener('change', loadOutfits);
 detail.addEventListener('click', (e) => { if (e.target === detail) detail.close(); });
 
@@ -53,7 +53,7 @@ async function loadOutfits() {
   const { tags, match } = tagFilter.query();
   for (const t of tags) params.append('tag', t);
   if (match) params.set('match', match);
-  if (sortBy.value) params.set('sort', sortBy.value);
+  params.set('sort', sortMenu.value());
   if (filterRating.value) params.set('rating', filterRating.value);
   try {
     const { outfits } = await api('/api/outfits?' + params.toString());

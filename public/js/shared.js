@@ -124,10 +124,11 @@ export function wearSection(item, onRecord) {
   return wrap;
 }
 
-// Searchable tag filter: a search box, prefix-filtered toggle chips, a
-// Någon/Alla switch and a plain-language caption. Renders into `host`.
-// `noun` goes in the caption ("plagg" / "outfits"). onChange() fires whenever
-// the selection or match mode changes. query() -> { tags: [...], match? }.
+// Searchable tag filter. Layout: a search box, the Någon/Alla switch right
+// beside it, then the tags on a single horizontally-scrolling row, with a
+// plain-language caption below. Renders into `host`. `noun` goes in the caption
+// ("plagg" / "outfits"). onChange() fires on any selection/match change.
+// query() -> { tags: [...], match? }.
 export function createTagFilter(host, noun, onChange) {
   const selected = new Set();
   let allTags = [];
@@ -136,7 +137,6 @@ export function createTagFilter(host, noun, onChange) {
 
   const row = document.createElement('div');
   row.className = 'tag-filter';
-  row.hidden = true;
 
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
@@ -150,15 +150,10 @@ export function createTagFilter(host, noun, onChange) {
     renderChips();
   });
 
-  const chipBox = document.createElement('div');
-  chipBox.className = 'filter-tags';
-
-  const matchWrap = document.createElement('div');
-  matchWrap.className = 'match-control';
-  matchWrap.hidden = true;
   const seg = document.createElement('span');
-  seg.className = 'segmented';
-  for (const [value, label] of [['any', 'Någon'], ['all', 'Alla']]) {
+  seg.className = 'segmented match-seg';
+  seg.hidden = true;
+  for (const [value, label] of [['any', 'Någon av taggarna'], ['all', 'Alla']]) {
     const b = document.createElement('button');
     b.type = 'button';
     b.dataset.match = value;
@@ -172,11 +167,15 @@ export function createTagFilter(host, noun, onChange) {
     });
     seg.append(b);
   }
+
+  const chipBox = document.createElement('div');
+  chipBox.className = 'filter-tags';
+
   const caption = document.createElement('span');
   caption.className = 'match-caption';
-  matchWrap.append(seg, caption);
+  caption.hidden = true;
 
-  row.append(searchInput, chipBox, matchWrap);
+  row.append(searchInput, seg, chipBox, caption);
   host.append(row);
 
   function makeChip(t) {
@@ -204,12 +203,9 @@ export function createTagFilter(host, noun, onChange) {
   }
 
   function renderCaption() {
-    matchWrap.hidden = selected.size < 1;
     seg.hidden = selected.size < 2;
-    if (selected.size < 2) {
-      caption.textContent = selected.size === 1 ? `Visar ${noun} med den valda taggen` : '';
-      return;
-    }
+    caption.hidden = selected.size < 2;
+    if (selected.size < 2) return;
     caption.replaceChildren();
     caption.append(document.createTextNode(`Visar ${noun} med `));
     const strong = document.createElement('strong');
@@ -236,4 +232,67 @@ export function createTagFilter(host, noun, onChange) {
       };
     },
   };
+}
+
+const SORT_OPTIONS = [
+  { value: 'created', label: 'Senast tillagd' },
+  { value: 'rating', label: 'Betyg' },
+  { value: 'last_worn', label: 'Senast använd' },
+  { value: 'most_worn', label: 'Mest använd' },
+];
+
+// An icon button that opens a menu of sort options (the active one marked).
+// The current choice is not shown as text. onChange() fires on pick.
+// value() -> the selected sort key.
+export function createSortMenu(host, onChange) {
+  let value = 'created';
+  host.classList.add('sort-menu');
+
+  const btn = document.createElement('button');
+  btn.type = 'button';
+  btn.className = 'icon-btn';
+  btn.title = 'Sortera';
+  btn.setAttribute('aria-label', 'Sortera');
+  btn.setAttribute('aria-haspopup', 'true');
+  btn.setAttribute('aria-expanded', 'false');
+  btn.innerHTML = '<svg width="16" height="16" viewBox="0 0 16 16" aria-hidden="true">'
+    + '<path d="M3 4.5h10M3 8h6M3 11.5h3" stroke="currentColor" stroke-width="1.6" stroke-linecap="round" fill="none"/>'
+    + '</svg>';
+
+  const menu = document.createElement('div');
+  menu.className = 'menu';
+  menu.hidden = true;
+
+  const close = () => { menu.hidden = true; btn.setAttribute('aria-expanded', 'false'); };
+  const open = () => { menu.hidden = false; btn.setAttribute('aria-expanded', 'true'); };
+
+  function renderMenu() {
+    menu.replaceChildren(...SORT_OPTIONS.map((o) => {
+      const item = document.createElement('button');
+      item.type = 'button';
+      item.className = 'menu-item' + (o.value === value ? ' selected' : '');
+      item.textContent = o.label;
+      item.addEventListener('click', (e) => {
+        e.stopPropagation();
+        value = o.value;
+        renderMenu();
+        close();
+        onChange();
+      });
+      return item;
+    }));
+  }
+
+  btn.addEventListener('click', (e) => {
+    e.stopPropagation();
+    if (menu.hidden) open();
+    else close();
+  });
+  document.addEventListener('click', close);
+  document.addEventListener('keydown', (e) => { if (e.key === 'Escape') close(); });
+
+  renderMenu();
+  host.append(btn, menu);
+
+  return { value: () => value };
 }

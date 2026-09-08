@@ -62,7 +62,19 @@ const namesByOwner = async (db, kind, ownerIds) => {
   return map;
 };
 
+// Delete tags that are no longer linked to any garment or outfit.
+const pruneOrphans = async (db, userId) => {
+  await db.query(
+    `DELETE FROM tags
+     WHERE user_id = $1
+       AND NOT EXISTS (SELECT 1 FROM garment_tags gt WHERE gt.tag_id = tags.id)
+       AND NOT EXISTS (SELECT 1 FROM outfit_tags ot WHERE ot.tag_id = tags.id)`,
+    [userId]
+  );
+};
+
 const listForUser = async (db, userId) => {
+  await pruneOrphans(db, userId);
   const { rows } = await db.query(
     `SELECT t.id, t.name,
        (SELECT count(*)::int FROM garment_tags gt WHERE gt.tag_id = t.id) AS garment_count,
@@ -88,4 +100,4 @@ const remove = async (db, userId, tagId) => {
   return rowCount > 0;
 };
 
-module.exports = { resolveTagIds, replaceLinks, namesByOwner, listForUser, remove };
+module.exports = { resolveTagIds, replaceLinks, namesByOwner, listForUser, pruneOrphans, remove };

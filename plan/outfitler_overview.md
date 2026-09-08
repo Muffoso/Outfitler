@@ -43,7 +43,8 @@ samling plagg, också med betyg och taggar.
 - `id`, `user_id`, `name` – fritt formulerad, unik per användare
   (skiftlägesokänsligt)
 - kopplas till plagg via `garment_tags` och till outfits via `outfit_tags`
-- skapas implicit när den sätts på ett plagg/outfit
+- skapas implicit när den sätts på ett plagg/outfit, och raderas automatiskt
+  när den inte längre används någonstans (`GET /api/tags` städar)
 - neutrala chips i UI (§6) – ingen färg per tagg
 
 ### betyg (rating)

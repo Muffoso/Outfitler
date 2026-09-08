@@ -276,6 +276,20 @@ CORS-metoderna utökade med `PATCH` i `middleware/security.js`.
 - [ ] Verifiera live: sök tagg, "använd" outfit → plaggens räknare ökar,
   sortera på mest/senast använd, palettdropdown utan namn.
 
+### Tredje iterationen (2026-09-08)
+
+- [x] Taggchippen ligger på **en rad** som scrollar i sidled (`overflow-x`),
+  ingen radbrytning.
+- [x] **Någon/Alla-knappen flyttad intill sökfältet**; texten "Någon" →
+  "Någon av taggarna".
+- [x] **Oanvända taggar raderas automatiskt** – `tagService.pruneOrphans`
+  körs först i `listForUser` (`GET /api/tags`), som frontend alltid hämtar
+  efter en ändring.
+- [x] **Sortering som ikonknapp + meny** (`createSortMenu` i `shared.js`) i
+  stället för en `<select>` som visade valt alternativ. Menyn markerar det
+  aktiva valet med ✓; knappen visar bara en ikon.
+- [x] Verifierat med jsdom (22 fall) + route-test + laddningstest av båda sidorna.
+
 ---
 
 ## Senare (ej i denna plan)
