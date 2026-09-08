@@ -42,7 +42,34 @@ filterpanel._
 
 ## 6. Färgpalett
 
-### Princip
+### Två paletter
+
+Användaren väljer mellan två paletter som kan bytas fram och tillbaka när
+som helst:
+
+- **Dämpad** (default) – den lågmättade paletten nedan.
+- **Järv** – varmare och mer mättad, med terrakotta som accent, för den
+  som vill ha mer karaktär i gränssnittet. Följer samma princip (neutral
+  grund, en accent, semantiska färger bara som återkoppling) men med
+  högre kontrast.
+
+Implementation: alla färger är CSS-variabler i `public/css/tokens.css`.
+Paletten styrs av attributet `data-palette="muted" | "bold"` på `<html>`;
+`public/js/theme.js` sätter attributet och sparar valet i `localStorage`.
+Att ändra en färg på ett ställe i `tokens.css` slår igenom överallt. Varje
+palett har både ljust och mörkt läge (mörkt läge följer OS-inställningen).
+
+Palett "Järv", ljust läge: bakgrund `#F4F1EA` · yta `#FFFFFF` · sekundär yta
+`#EDE6D8` · kant `#D8CDB9` · sekundär text `#6E6047` · brödtext `#2A2318` ·
+rubrik `#17110A` · accent `#B5451B` (hover `#94370F`, ljus `#F7E5D9`) ·
+lyckat `#3F7D3A` · varning `#C6871B` · fel `#A83226`.
+
+Palett "Järv", mörkt läge: bakgrund `#17130E` · yta `#221C15` · sekundär yta
+`#2D251C` · kant `#40372A` · sekundär text `#ADA089` · text `#F0E8DA` ·
+accent `#E0703F` (hover `#EC8859`, ljus `#38271D`) · lyckat `#7FB877` ·
+varning `#E0A93F` · fel `#D98A7E`.
+
+### Princip (palett "Dämpad")
 
 Appen visar mest av allt **användarens egna foton på kläder** – i alla tänkbara
 färger. Gränssnittets färger måste därför **dra sig tillbaka** och aldrig

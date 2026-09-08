@@ -4,6 +4,15 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>My App</title>
+  <script>
+    /* Sätt sparad palett före render så inget hoppar. Se js/theme.js. */
+    try {
+      var p = localStorage.getItem('outfitler:palette');
+      document.documentElement.dataset.palette = (p === 'bold' || p === 'muted') ? p : 'muted';
+    } catch (e) {
+      document.documentElement.dataset.palette = 'muted';
+    }
+  </script>
   <link rel="stylesheet" href="/css/tokens.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
@@ -17,6 +26,7 @@
   </style>
 </head>
 <body>
+  <button type="button" class="palette-toggle" data-palette-toggle>Palett: Dämpad</button>
   <div class="container">
     <h1>Welcome</h1>
     <div id="userInfo" class="user-info">
@@ -25,6 +35,7 @@
     <button id="logoutBtn">Log out</button>
   </div>
 
+  <script type="module" src="/js/theme.js"></script>
   <script type="module" src="/js/index.js"></script>
 </body>
 </html>
