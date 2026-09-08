@@ -32,8 +32,13 @@ _TODO: prioriterad ordning._
 
 ## 4. Bildhantering
 
-_TODO: var lagras bilder (Railway-volym, extern bucket, ...), uppladdningsflöde,
-storlekar/thumbnails, maxstorlek._
+Detaljerad plan i **[`plan/image_storage.md`](image_storage.md)**: lagring i
+Cloudflare R2 (privat bucket, CDN på egen subdomän, signerade URL:er),
+bearbetning med `sharp` vid uppladdning (EXIF-rotering + strippning, transkoda
+till WebP), varianter `thumb`/`card`/`archive`, uppladdningstak 20 MB samt
+`ImageStore`-abstraktion så leverantören kan bytas.
+
+Öppna beslut som fortfarande ska bekräftas listas sist i det dokumentet.
 
 ## 5. UI-vyer
 
