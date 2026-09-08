@@ -11,20 +11,6 @@ const filterArchived = document.getElementById('filterArchived');
 
 document.getElementById('logoutBtn').addEventListener('click', () => logout());
 document.getElementById('newBtn').addEventListener('click', createGarment);
-
-// TEMPORÄR (Fas 4b) – tas bort i Fas 5
-document.getElementById('storageTestBtn').addEventListener('click', async (e) => {
-  e.target.disabled = true;
-  try {
-    const result = await api('/api/_storage-selftest');
-    alert((result.ok ? 'Lagring OK\n\n' : 'Lagring MISSLYCKADES\n\n')
-      + result.steps.join('\n') + (result.error ? '\n\n' + result.error : ''));
-  } catch (err) {
-    alert('Lagringstest gick inte att köra: ' + err.message);
-  } finally {
-    e.target.disabled = false;
-  }
-});
 filterRating.addEventListener('change', loadGarments);
 filterArchived.addEventListener('change', loadGarments);
 filterTag.addEventListener('input', debounce(loadGarments, 300));
@@ -112,10 +98,7 @@ function cardEl(g) {
   const card = document.createElement('div');
   card.className = 'card' + (g.archived ? ' archived' : '');
 
-  const photo = document.createElement('div');
-  photo.className = 'photo';
-  photo.textContent = 'Bilduppladdning kommer i Fas 5';
-  card.append(photo);
+  card.append(photoEl(g));
 
   const body = document.createElement('div');
   body.className = 'card-body';
@@ -197,8 +180,77 @@ function cardEl(g) {
   actions.append(arch, del);
   body.append(actions);
 
+  if (g.image) {
+    const rmImg = document.createElement('button');
+    rmImg.type = 'button';
+    rmImg.className = 'btn btn-secondary btn-sm';
+    rmImg.textContent = 'Ta bort bild';
+    rmImg.addEventListener('click', () => removeImage(g.id));
+    body.append(rmImg);
+  }
+
   card.append(body);
   return card;
+}
+
+const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
+const MAX_UPLOAD = 20 * 1024 * 1024;
+
+function photoEl(g) {
+  const photo = document.createElement('label');
+  photo.className = 'photo';
+  photo.title = g.image ? 'Byt bild' : 'Lägg till bild';
+
+  const file = document.createElement('input');
+  file.type = 'file';
+  file.accept = ACCEPT;
+  file.hidden = true;
+  file.addEventListener('change', () => {
+    const f = file.files[0];
+    file.value = '';
+    uploadImage(g, f, photo);
+  });
+  photo.append(file);
+
+  if (g.image) {
+    const img = document.createElement('img');
+    img.src = g.image.thumb.url;
+    img.alt = '';
+    img.loading = 'lazy';
+    photo.append(img);
+    const hint = document.createElement('span');
+    hint.className = 'photo-hint';
+    hint.textContent = 'Byt bild';
+    photo.append(hint);
+  } else {
+    const span = document.createElement('span');
+    span.textContent = 'Klicka för att lägga till bild';
+    photo.append(span);
+  }
+  return photo;
+}
+
+async function uploadImage(g, fileObj, photoNode) {
+  if (!fileObj) return;
+  if (fileObj.size > MAX_UPLOAD) {
+    alert('Bilden är för stor (max 20 MB).');
+    return;
+  }
+  const form = new FormData();
+  form.append('image', fileObj);
+  photoNode.classList.add('busy');
+  try {
+    await api('/api/garments/' + g.id + '/image', { method: 'PUT', body: form });
+    await refresh();
+  } catch (err) {
+    alert('Kunde inte ladda upp bild: ' + err.message);
+    photoNode.classList.remove('busy');
+  }
+}
+
+async function removeImage(id) {
+  if (!confirm('Ta bort bilden?')) return;
+  await mutate(() => api('/api/garments/' + id + '/image', { method: 'DELETE' }));
 }
 
 // Run an API mutation, then reload list + tags (so filters and counts stay right).

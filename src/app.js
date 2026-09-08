@@ -46,8 +46,6 @@ app.use('/auth', require('./routes/oauth'));
 app.use('/api/garments', app.locals.limiters.general, require('./routes/garments'));
 app.use('/api/outfits', app.locals.limiters.general, require('./routes/outfits'));
 app.use('/api/tags', app.locals.limiters.general, require('./routes/tags'));
-// TEMPORARY (Fas 4b) — remove at the start of Fas 5.
-app.use('/api/_storage-selftest', app.locals.limiters.general, require('./routes/storageSelfTest'));
 
 // Static files (last, so API routes take precedence). "/" serves public/index.html.
 app.use(express.static('public'));

@@ -21,9 +21,9 @@
 | 2 | Migrationer: garments, outfits, tags + join-tabeller | Tomt schema i produktion |
 | 3 | API: garments, outfits, tags (utan bild) | CRUD + taggning + betyg live |
 | 4 | `ImageStore` + R2 | Appen kan skriva/läsa/radera i R2 |
-| 5 | Bildpipeline + upp­laddnings-endpoint | En bild per plagg end-to-end via API |
-| 6a | Frontend: garderobsvy (Fas 3-funktioner) | Plagg, betyg, taggar, notes i UI:t |
-| 6b | Frontend: bild i garderobsvyn (efter Fas 5) | Ladda upp/byt bild i UI:t |
+| 5 | Bildpipeline + upp­laddnings-endpoint | En bild per plagg end-to-end via API — **klar, verifiera live** |
+| 6a | Frontend: garderobsvy (Fas 3-funktioner) | Plagg, betyg, taggar, notes i UI:t — **klar** |
+| 6b | Frontend: bild i garderobsvyn | Ladda upp/byt/ta bort bild i UI:t — **klar, verifiera live** |
 | 7 | Frontend: outfit-byggare | Skapa outfits av plagg, betygsätt, tagga |
 
 ---
@@ -154,36 +154,32 @@ CORS-metoderna utökade med `PATCH` i `middleware/security.js`.
 
 ## Fas 5 – Bildpipeline + uppladdnings-endpoint
 
-- [ ] `npm i sharp multer`
+- [x] `sharp` + `multer` i `package.json`. **`sharp@0.35` kräver Node ≥ 20** →
+  `Dockerfile` bumpad `node:18-alpine` → `node:20-alpine` (Node 18 är EOL ändå).
+  Samma bump behövs i [[template-repo]].
 - [ ] Kontrollera i Railway **build**-loggen att `sharp` drar in en förbyggd
-  binär med HEIF-stöd (för iPhone-HEIC).
-- [ ] `src/services/imageProcessor.js` – tar en `Buffer`:
-  - Validera magic bytes (jpeg / png / webp / heic / heif) → annars fel `415`.
-  - `sharp(buf).rotate()` (EXIF-orientering) och strippa metadata i utdata.
-  - Generera varianter:
-    - `archive` – långsida ≤ 2560 px, WebP q82
-    - `card` – långsida 1000 px, WebP q78
-    - `thumb` – långsida 500 px, WebP q72
-  - Returnera `{ variants: {thumb,card,archive}, width, height, bytes, hash }`
-    (hash = sha256 av arkivbufferten).
-- [ ] Endpoints i `src/routes/garments.js` (eller `src/routes/images.js`):
-  - `PUT /api/garments/:id/image` – `requireAuth`, äger plagget?,
-    `multer({ storage: memoryStorage(), limits: { fileSize: 20*1024*1024 } })`:
-    1. nytt `imageId = crypto.randomUUID()`
-    2. prefix `users/{userId}/garments/{garmentId}/{imageId}`
-    3. processa → `put` alla tre varianter (`.../thumb.webp` osv.)
-    4. `UPDATE garments SET image_key_prefix, image_variants, image_width, …`
-    5. om plagget hade en gammal bild: `delPrefix(gammalt prefix)`
-    6. svara med signerade URL:er per variant
-  - `DELETE /api/garments/:id/image` – `delPrefix` + nolla `image_*`-kolumnerna.
-- [ ] Ny limiter `app.locals.limiters.upload` (t.ex. 30 / 15 min) i
-  `src/middleware/security.js`, applicera på uppladdnings-routen.
-- [ ] Felhantering: multer `LIMIT_FILE_SIZE` → `413`; ogiltig typ → `415`.
-- [ ] `GET /api/garments` och `/:id`: berika varje plagg med färska signerade
-  URL:er (`image: { thumb, card, archive }` eller `null`).
-- [ ] Verifiera live: ladda upp en JPEG → URL:er i svaret → bilderna öppnas →
-  ladda upp en ny → kontrollera i Cloudflare-dashboarden att det gamla
-  prefixet är borta.
+  musl-binär med HEIF-stöd (för iPhone-HEIC).
+- [x] `src/services/imageProcessor.js` – magic-byte-koll (jpeg/png/webp/heic →
+  annars `UNSUPPORTED_TYPE`), `sharp().rotate()` (EXIF, strippas i utdata),
+  varianter `archive` ≤2560/q82, `card` 1000/q78, `thumb` 500/q72 → WebP.
+  Returnerar per-variant `{buffer,width,height}` + `bytes` + `hash` (sha256).
+- [x] `src/routes/garments.js`:
+  - `PUT /api/garments/:id/image` – `requireAuth`, ägarkoll, `multer`
+    memoryStorage 20 MB / 1 fil. Nytt `imageId`, prefix
+    `users/{userId}/garments/{garmentId}/{imageId}`, `put` alla tre varianter,
+    `setImage(...)`, `delPrefix(gammalt prefix)`, svara med serialiserat plagg.
+  - `DELETE /api/garments/:id/image` – `clearImage` + `delPrefix`.
+- [x] Limiter `app.locals.limiters.upload` (40 / 15 min) i
+  `src/middleware/security.js`, på uppladdnings-routen.
+- [x] Felhantering: `LIMIT_FILE_SIZE` → `413`; ogiltig typ → `415`; ingen fil → `400`.
+- [x] `garmentService` serialiserar `image: { thumb:{url,w,h}, card, archive,
+  width, height }` med färska signerade URL:er, `null` när ingen bild finns.
+  `DELETE /api/garments/:id` städar även R2.
+- [x] Tog bort den tillfälliga `/api/_storage-selftest` + "Testa lagring"-knappen.
+- [x] Verifierat lokalt med stubbad pool/store + riktig `sharp` (9 fall: upload
+  → 3 varianter, nyckel­format, ersätt raderar gammalt prefix, 415/400, delete).
+- [ ] Verifiera live: ladda upp en JPEG i garderobsvyn → bild syns → ladda upp
+  en ny → kontrollera i Cloudflare-dashboarden att det gamla prefixet är borta.
 
 ---
 
@@ -206,13 +202,17 @@ CORS-metoderna utökade med `PATCH` i `middleware/security.js`.
 
 ### 6b – bild i garderobsvyn (efter Fas 5)
 
-- [ ] Ersätt bildplatshållaren med `thumb`/`card` + `<input type="file"
-  accept="image/jpeg,image/png,image/webp,image/heic">`, `PUT /api/garments/:id/image`
-  som `multipart/form-data`.
-- [ ] Klientvalidering: storlek < 20 MB, tillåten typ, förhandsvisning.
-- [ ] "Byt bild" ersätter (ingen flera-bilder-UI).
-- [ ] `src/middleware/security.js` CSP: `imgSrc` tillåter redan `https:`; strama
-  åt till R2-endpointen om vi vill.
+- [x] Kortets bildyta är en `<label>` med dold `<input type="file"
+  accept="image/jpeg,image/png,image/webp,image/heic,image/heif">`. Har plagget
+  en bild visas `thumb` (cover), annars "Klicka för att lägga till bild".
+- [x] `PUT /api/garments/:id/image` som `multipart/form-data`; klientkoll på
+  storlek < 20 MB; `busy`-tillstånd på bildytan under uppladdning.
+- [x] "Byt bild" = ny uppladdning ersätter. "Ta bort bild"-knapp när bild finns
+  (`DELETE /api/garments/:id/image`).
+- [x] `imgSrc` i CSP tillåter redan `https:` → R2-signerade URL:er funkar utan
+  ändring. (Strama åt till R2-endpointen senare om vi vill.)
+- [ ] Verifiera i webbläsaren: skapa plagg → ladda upp bild → syns i rutnätet →
+  byt bild → ta bort bild.
 
 ---
 

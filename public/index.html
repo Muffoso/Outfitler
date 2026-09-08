@@ -43,9 +43,16 @@
       border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; }
     .card.archived { opacity: .55; }
 
-    .photo { aspect-ratio: 3 / 4; background: var(--surface-2); border-bottom: 1px solid var(--border);
-      display: flex; align-items: center; justify-content: center; text-align: center;
-      padding: 12px; color: var(--text-muted); font-size: 12px; }
+    .photo { position: relative; aspect-ratio: 3 / 4; background: var(--surface-2);
+      border-bottom: 1px solid var(--border); display: flex; align-items: center;
+      justify-content: center; text-align: center; padding: 12px; overflow: hidden;
+      color: var(--text-muted); font-size: 12px; cursor: pointer; }
+    .photo img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: cover; }
+    .photo:hover .photo-hint { opacity: 1; }
+    .photo-hint { position: absolute; left: 0; right: 0; bottom: 0; padding: 6px;
+      background: color-mix(in srgb, var(--surface) 80%, transparent); color: var(--text);
+      font-size: 12px; opacity: 0; transition: opacity .12s; }
+    .photo.busy { opacity: .55; pointer-events: none; }
 
     .card-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
 
@@ -83,8 +90,6 @@
   <div class="wrap">
     <div class="toolbar">
       <button type="button" id="newBtn" class="btn btn-primary">+ Nytt plagg</button>
-      <!-- TEMPORÄR (Fas 4b) – tas bort i Fas 5 -->
-      <button type="button" id="storageTestBtn" class="btn btn-secondary btn-sm">Testa lagring</button>
       <span class="spacer"></span>
       <input type="text" id="filterTag" list="tagList" placeholder="Filtrera på tagg">
       <select id="filterRating">
