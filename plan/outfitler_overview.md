@@ -45,6 +45,10 @@ Besluten (R2 från start, alltid nedskalad `archive`, signerade URL:er,
 bakgrundsborttagning senare, en bild per plagg, uppladdning via appen) med
 motivering finns i avsnitt 10 i det dokumentet.
 
+Steg-för-steg-genomförande: **[`plan/image_storage_implementation.md`](image_storage_implementation.md)**
+(Fas 1 = definiera plaggmodellen i §2 nedan, sedan `garments`-tabell, plagg-API,
+`ImageStore`/R2, bildpipeline, garderobsvy).
+
 ## 5. UI-vyer
 
 _TODO: huvudvyer – garderobsöversikt, outfit-byggare, detaljvy för plagg/outfit,

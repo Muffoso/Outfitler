@@ -106,14 +106,21 @@ fördubbla antalet filer. `srcset` med 2×-varianter kan läggas till senare.
 
 ## 5. URL:er, åtkomst och integritet
 
-- **Privat bucket.** En garderob är personlig.
+- **Privat bucket.** En garderob är personlig – ingen public access, ingen
+  publik custom domain.
 - Nycklar: `users/{userId}/garments/{garmentId}/{imageId}/{variant}.webp`
   där `imageId` är en slumpmässig UUID → inte gissningsbara.
-- Appen skapar **signerade GET-URL:er** (giltiga ~7 dygn, matchar
-  cache-livslängden). Proxa **inte** bilder genom Express i produktion – då
-  betalar vi Railway-egress igen; signerade URL:er direkt mot CDN är poängen.
-- Custom domain `img.outfitler.app` → R2 via Cloudflare.
-- `Cache-Control: public, max-age=31536000, immutable` på alla varianter.
+- Appen skapar **signerade GET-URL:er** mot R2:s S3-endpoint
+  (`https://<account>.r2.cloudflarestorage.com`). TTL 7 dygn = SigV4:s
+  maxgräns för presignerade URL:er. Signeras vid läsning (när en vy hämtar
+  plagg) och skickas med till klienten.
+- Proxa **inte** bilder genom Express i produktion – Railway-egress. Klienten
+  hämtar direkt från R2 med den signerade URL:en.
+- `Cache-Control: public, max-age=31536000, immutable` sätts på objekten vid
+  uppladdning (webbläsarcache nu, edge-cache senare).
+- **Senare:** en Cloudflare Worker på `img.outfitler.app` som gör en riktig
+  auth-koll och ger edge-cache + snyggare URL:er. Utan den går signerade
+  GET:ar direkt till R2 – fungerar, privat och billigt, men ingen edge-cache.
 
 ## 6. Abstraktionslager
 
@@ -230,14 +237,15 @@ funktion kräver mer – då kan "behåll original" bli ett per-bild-tillval.
 
 ### 3. Signerade GET-URL:er (inte proxy via appen)
 
-**Beslut:** appen mintar signerade R2-URL:er (TTL ~7 dygn), klienten hämtar
-direkt från CDN.
+**Beslut:** appen mintar signerade GET-URL:er mot R2:s S3-endpoint (TTL 7 dygn),
+klienten hämtar direkt därifrån.
 
 Motivering: proxy genom Express innebär Railway-egress på varje bildvisning –
 det tar bort hela poängen med R2 – plus extra CPU och latens. Nackdelen med
 signerade URL:er (en länk kan delas vidare under sin TTL) är acceptabel för en
-garderobsapp; nycklarna är ändå ogissningsbara UUID:er. Om skarpare kontroll
-behövs senare kan vi lägga en auth-koll i en Cloudflare Worker framför bucketen.
+garderobsapp; nycklarna är ändå ogissningsbara UUID:er. Skarpare kontroll och
+edge-cache läggs senare via en Cloudflare Worker på `img.outfitler.app` (se
+avsnitt 5).
 
 ### 4. Bakgrundsborttagning: senare funktion, inte v1
 
