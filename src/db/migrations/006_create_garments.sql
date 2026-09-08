@@ -13,7 +13,7 @@ CREATE TABLE IF NOT EXISTS garments (
   image_bytes       INTEGER,
   image_hash        TEXT,
   image_updated_at  TIMESTAMPTZ,
-  rating            SMALLINT CHECK (rating BETWEEN 1 AND 5),
+  rating            SMALLINT CHECK (rating BETWEEN 1 AND 10),
   notes             TEXT,
   archived          BOOLEAN NOT NULL DEFAULT FALSE,
   created_at        TIMESTAMPTZ NOT NULL DEFAULT NOW(),

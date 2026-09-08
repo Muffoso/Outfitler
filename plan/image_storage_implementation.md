@@ -228,6 +228,27 @@ CORS-metoderna utökade med `PATCH` i `middleware/security.js`.
 
 ---
 
+## Iterationer efter Fas 6 (användarfeedback 2026-09-08)
+
+- [x] **Betyg 1–10** (var 1–5). Migration `009_widen_rating_to_10.sql`
+  (DROP + ADD CHECK, idempotent); zod `max(10)` i garments/outfits; 10 stjärnor
+  i detaljvyn.
+- [x] **Filtrera på flera taggar** med **Någon/Alla**-växel. `?tag=` upprepas,
+  `?match=any|all`; backend: `EXISTS` resp. `count(DISTINCT lower(name)) = N`.
+  Verktygsraden visar användarens taggar som växelchips.
+- [x] **Bildrutnät i huvudvyn** – 3 per rad, **bara bilden** (liten betygsbadge).
+  Klick öppnar en `<dialog>` med detaljerna (bild, betyg, taggar, notes,
+  arkivera, ta bort).
+- [x] **Palettväxlare = dropdown med färgrutor** i stället för "Palett: Dämpad".
+  `theme.js` bygger knapp + meny i `[data-palette-picker]`; login/register
+  använder samma via `.palette-float`.
+- [x] **Mobil taggning:** tagg läggs till via ett `<form>` (submit funkar med
+  mobiltangentbordets Enter/Klar) + "Lägg till"-knapp.
+- [ ] Verifiera live: betyg upp till 10, multi-tagg-filter med Alla/Någon,
+  rutnät → klick → detalj, palettdropdown, lägga tagg på mobil.
+
+---
+
 ## Senare (ej i denna plan)
 
 - Cloudflare Worker på `img.outfitler.app`: riktig auth-koll + edge-cache +
@@ -250,4 +271,4 @@ CORS-metoderna utökade med `PATCH` i `middleware/security.js`.
 `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`
 
 **Nya migrationer:** `006_create_garments.sql`, `007_create_outfits.sql`,
-`008_create_tags.sql`
+`008_create_tags.sql`, `009_widen_rating_to_10.sql`

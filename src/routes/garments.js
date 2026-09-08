@@ -20,9 +20,10 @@ router.param('id', (req, res, next, value) => {
   next();
 });
 
-const rating = z.number().int().min(1).max(5).nullable();
+const rating = z.number().int().min(1).max(10).nullable();
 const notes = z.string().max(2000).nullable();
 const tags = z.array(z.string().trim().min(1).max(50)).max(50);
+const tagName = z.string().trim().min(1).max(50);
 
 const createSchema = z.object({
   rating: rating.optional(),
@@ -38,8 +39,11 @@ const updateSchema = z.object({
 });
 
 const listQuerySchema = z.object({
-  tag: z.string().trim().min(1).max(50).optional(),
-  rating: z.coerce.number().int().min(1).max(5).optional(),
+  // repeatable: ?tag=a&tag=b  (single ?tag=a still works)
+  tag: z.union([tagName, z.array(tagName).max(20)]).optional()
+    .transform((v) => (v === undefined ? undefined : (Array.isArray(v) ? v : [v]))),
+  match: z.enum(['all', 'any']).optional(),
+  rating: z.coerce.number().int().min(1).max(10).optional(),
   archived: z.enum(['true', 'false', 'all']).optional(),
 });
 

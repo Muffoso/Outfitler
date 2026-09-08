@@ -51,13 +51,19 @@ const list = async (pool, userId, filters = {}) => {
     params.push(filters.rating);
     where.push(`rating = $${params.length}`);
   }
-  if (filters.tag) {
-    params.push(filters.tag);
-    where.push(
-      `EXISTS (SELECT 1 FROM garment_tags gt JOIN tags t ON t.id = gt.tag_id
-               WHERE gt.garment_id = garments.id AND t.user_id = $1
-                 AND lower(t.name) = lower($${params.length}))`
-    );
+
+  const tagNames = (filters.tag || []).map((t) => t.toLowerCase());
+  if (tagNames.length > 0) {
+    params.push(tagNames);
+    const idx = params.length;
+    const joined = `garment_tags gt JOIN tags t ON t.id = gt.tag_id
+       WHERE gt.garment_id = garments.id AND t.user_id = $1
+         AND lower(t.name) = ANY($${idx}::text[])`;
+    if (filters.match === 'all') {
+      where.push(`(SELECT count(DISTINCT lower(t.name)) FROM ${joined}) = ${tagNames.length}`);
+    } else {
+      where.push(`EXISTS (SELECT 1 FROM ${joined})`);
+    }
   }
 
   const { rows } = await pool.query(

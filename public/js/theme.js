@@ -1,53 +1,109 @@
-/* Palettval. Se plan/outfitler_overview.md §6 och public/css/tokens.css.
-   Sätter data-palette på <html> och sparar valet i localStorage så att
-   det följer med mellan sidor och sessioner. Alla färger är CSS-variabler,
-   så attributbytet uppdaterar hela gränssnittet på en gång. */
+/* Palettval. Sätter data-palette på <html> och sparar valet i localStorage.
+   Alla färger är CSS-variabler (public/css/tokens.css) så attributbytet
+   uppdaterar hela gränssnittet. Bygger en dropdown i varje [data-palette-picker]
+   där paletterna visas som färgrutor. Se plan/outfitler_overview.md §6. */
 
-const PALETTES = ['muted', 'bold'];
 const STORAGE_KEY = 'outfitler:palette';
-const LABELS = { muted: 'Palett: Dämpad', bold: 'Palett: Järv' };
+
+// Representativa färgrutor (ljust läge) per palett – bg, sekundär yta, accent, text.
+const PALETTES = [
+  { id: 'muted', name: 'Dämpad', swatches: ['#FAFAF8', '#EEEDE9', '#42566A', '#1C1C1B'] },
+  { id: 'bold', name: 'Järv', swatches: ['#F4F1EA', '#EDE6D8', '#B5451B', '#17110A'] },
+];
+const IDS = PALETTES.map((p) => p.id);
 
 export function getPalette() {
   try {
     const saved = localStorage.getItem(STORAGE_KEY);
-    if (PALETTES.includes(saved)) return saved;
+    if (IDS.includes(saved)) return saved;
   } catch {
-    /* localStorage kan vara blockerat – fall tillbaka på default */
+    /* localStorage kan vara blockerat */
   }
   return 'muted';
 }
 
-export function applyPalette(name) {
-  const palette = PALETTES.includes(name) ? name : 'muted';
+export function applyPalette(id) {
+  const palette = IDS.includes(id) ? id : 'muted';
   document.documentElement.dataset.palette = palette;
   try {
     localStorage.setItem(STORAGE_KEY, palette);
   } catch {
-    /* ignoreras – valet gäller då bara denna sidladdning */
+    /* ignoreras */
   }
-  refreshToggles();
+  renderPickers();
   return palette;
 }
 
-export function togglePalette() {
-  const current = document.documentElement.dataset.palette || getPalette();
-  return applyPalette(current === 'bold' ? 'muted' : 'bold');
+function swatchRow(colors) {
+  const row = document.createElement('span');
+  row.className = 'palette-swatches';
+  for (const c of colors) {
+    const dot = document.createElement('span');
+    dot.className = 'palette-swatch';
+    dot.style.background = c;
+    row.append(dot);
+  }
+  return row;
 }
 
-function refreshToggles() {
-  const current = document.documentElement.dataset.palette || 'muted';
-  const next = current === 'bold' ? 'muted' : 'bold';
-  document.querySelectorAll('[data-palette-toggle]').forEach((btn) => {
-    btn.textContent = LABELS[current];
-    btn.setAttribute('aria-label', `Byt till palett ${LABELS[next].replace('Palett: ', '')}`);
-  });
+function closeAllMenus() {
+  document.querySelectorAll('.palette-menu:not([hidden])').forEach((m) => { m.hidden = true; });
+  document.querySelectorAll('.palette-current[aria-expanded="true"]')
+    .forEach((b) => b.setAttribute('aria-expanded', 'false'));
 }
 
-// Säkerställ att sparat val är aktivt (den inline-skriptsnutt som sidorna
-// kör i <head> hinner före render; detta är för säkerhets skull) och koppla
-// alla växlarknappar.
+function renderPickers() {
+  const current = getPalette();
+  for (const host of document.querySelectorAll('[data-palette-picker]')) {
+    host.classList.add('palette-picker');
+    const cur = PALETTES.find((p) => p.id === current);
+
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = 'palette-current';
+    btn.setAttribute('aria-haspopup', 'true');
+    btn.setAttribute('aria-expanded', 'false');
+    btn.title = `Palett: ${cur.name}`;
+    btn.append(swatchRow(cur.swatches));
+    const caret = document.createElement('span');
+    caret.className = 'palette-caret';
+    caret.textContent = '▾';
+    btn.append(caret);
+
+    const menu = document.createElement('div');
+    menu.className = 'palette-menu';
+    menu.hidden = true;
+    for (const p of PALETTES) {
+      const opt = document.createElement('button');
+      opt.type = 'button';
+      opt.className = 'palette-option' + (p.id === current ? ' selected' : '');
+      opt.append(swatchRow(p.swatches));
+      const label = document.createElement('span');
+      label.className = 'palette-name';
+      label.textContent = p.name;
+      opt.append(label);
+      opt.addEventListener('click', (e) => {
+        e.stopPropagation();
+        applyPalette(p.id);
+      });
+      menu.append(opt);
+    }
+
+    btn.addEventListener('click', (e) => {
+      e.stopPropagation();
+      const wasOpen = !menu.hidden;
+      closeAllMenus();
+      if (!wasOpen) {
+        menu.hidden = false;
+        btn.setAttribute('aria-expanded', 'true');
+      }
+    });
+
+    host.replaceChildren(btn, menu);
+  }
+}
+
+document.addEventListener('click', closeAllMenus);
+document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeAllMenus(); });
+
 applyPalette(getPalette());
-
-for (const btn of document.querySelectorAll('[data-palette-toggle]')) {
-  btn.addEventListener('click', () => togglePalette());
-}

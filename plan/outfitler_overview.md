@@ -23,7 +23,7 @@ samling plagg, också med betyg och taggar.
 - `id`, `user_id` (ägare)
 - bildkolumner enligt [`image_storage.md`](image_storage.md) §7 – nullable tills
   en bild laddats upp (max en bild per plagg)
-- `rating` – heltal 1–5, nullable (tomt = ej betygsatt)
+- `rating` – heltal 1–10, nullable (tomt = ej betygsatt)
 - `notes` – frittextkommentar, nullable
 - `archived` – bool, dölj plagget utan att radera det
 - `created_at`, `updated_at`
@@ -32,7 +32,7 @@ samling plagg, också med betyg och taggar.
 
 - `id`, `user_id`
 - `name` – kort etikett (obligatoriskt)
-- `rating` – 1–5, nullable
+- `rating` – 1–10, nullable
 - `notes` – frittextkommentar, nullable
 - `created_at`, `updated_at`
 - kopplas till plagg via `outfit_garments` (många-till-många, med `position`
@@ -48,7 +48,7 @@ samling plagg, också med betyg och taggar.
 
 ### betyg (rating)
 
-Ingen egen tabell – `rating`-kolumn på `garment` och `outfit`. Skala 1–5.
+Ingen egen tabell – `rating`-kolumn på `garment` och `outfit`. Skala 1–10.
 
 ### Ägande och radering
 
@@ -104,7 +104,8 @@ som helst:
 
 Implementation: alla färger är CSS-variabler i `public/css/tokens.css`.
 Paletten styrs av attributet `data-palette="muted" | "bold"` på `<html>`;
-`public/js/theme.js` sätter attributet och sparar valet i `localStorage`.
+`public/js/theme.js` bygger en dropdown i `[data-palette-picker]` där varje
+palett visas som färgrutor, sätter attributet och sparar valet i `localStorage`.
 Att ändra en färg på ett ställe i `tokens.css` slår igenom överallt. Varje
 palett har både ljust och mörkt läge (mörkt läge följer OS-inställningen).
 

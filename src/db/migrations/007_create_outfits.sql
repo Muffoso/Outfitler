@@ -7,7 +7,7 @@ CREATE TABLE IF NOT EXISTS outfits (
   id          UUID PRIMARY KEY DEFAULT gen_random_uuid(),
   user_id     UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
   name        TEXT NOT NULL,
-  rating      SMALLINT CHECK (rating BETWEEN 1 AND 5),
+  rating      SMALLINT CHECK (rating BETWEEN 1 AND 10),
   notes       TEXT,
   created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
   updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW()
