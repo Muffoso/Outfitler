@@ -34,9 +34,11 @@ samling plagg, också med betyg och taggar.
 - `name` – kort etikett (obligatoriskt)
 - `rating` – 1–10, nullable
 - `notes` – frittextkommentar, nullable
+- bildkolumner (samma som `garment`) – en egen bild för outfiten, utöver att
+  den visas som sina plaggs bilder. Egen bild vinner som kortbild i rutnätet.
 - `created_at`, `updated_at`
 - kopplas till plagg via `outfit_garments` (många-till-många, med `position`
-  för visningsordning). Ingen egen bild – visas som sina plaggs bilder.
+  för visningsordning).
 
 ### tagg (tag)
 

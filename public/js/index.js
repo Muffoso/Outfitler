@@ -1,7 +1,7 @@
 import { initAuth, logout } from './auth.js';
 import {
   api, jsonHeaders, starRow, tagChips, tagAddForm, spacer, wearSection,
-  createTagFilter, createSortMenu,
+  createTagFilter, createSortMenu, detailPhoto, uploadImageFile,
 } from './shared.js';
 
 await initAuth();
@@ -13,8 +13,6 @@ const filterRating = document.getElementById('filterRating');
 const filterArchived = document.getElementById('filterArchived');
 
 const MAX_RATING = 10;
-const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
-const MAX_UPLOAD = 20 * 1024 * 1024;
 
 const state = { garments: [], tags: [] };
 const tagFilter = createTagFilter(document.getElementById('tagFilter'), 'plagg', loadGarments);
@@ -172,23 +170,7 @@ function renderDetail() {
   const g = currentGarment();
   if (!g) return;
 
-  const photo = document.createElement('label');
-  photo.className = 'detail-photo';
-  photo.title = g.image ? 'Byt bild' : 'Lägg till bild';
-  const file = document.createElement('input');
-  file.type = 'file';
-  file.accept = ACCEPT;
-  file.hidden = true;
-  file.addEventListener('change', () => { const f = file.files[0]; file.value = ''; uploadImage(g.id, f, photo); });
-  photo.append(file);
-  if (g.image) {
-    const img = document.createElement('img');
-    img.src = g.image.card.url;
-    img.alt = '';
-    photo.append(img);
-  } else {
-    photo.append(document.createTextNode('Klicka för att lägga till bild'));
-  }
+  const photo = detailPhoto(g.image, (file, labelEl) => uploadImage(g.id, file, labelEl));
 
   const body = document.createElement('div');
   body.className = 'detail-body';
@@ -258,24 +240,15 @@ function renderDetail() {
   detail.replaceChildren(photo, body);
 }
 
-// ---- image upload ----
+// ---- image ----
 
-async function uploadImage(id, fileObj, photoNode) {
-  if (!fileObj) return;
-  if (fileObj.size > MAX_UPLOAD) {
-    alert('Bilden är för stor (max 20 MB).');
-    return;
-  }
-  const form = new FormData();
-  form.append('image', fileObj);
-  photoNode.classList.add('busy');
+async function uploadImage(id, file, labelEl) {
   try {
-    const { garment } = await api('/api/garments/' + id + '/image', { method: 'PUT', body: form });
+    const { garment } = await uploadImageFile('/api/garments/' + id, file, labelEl);
     replaceInState(garment);
     renderGrid();
     renderDetail();
   } catch (err) {
-    photoNode.classList.remove('busy');
     alert('Kunde inte ladda upp bild: ' + err.message);
   }
 }

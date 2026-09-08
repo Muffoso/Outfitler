@@ -91,6 +91,53 @@ export function spacer() {
   return s;
 }
 
+export const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
+export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
+
+// A clickable photo area (label wrapping a hidden file input). Shows image.card
+// when set, otherwise a prompt. onFile(File, labelEl) fires on selection.
+export function detailPhoto(image, onFile) {
+  const photo = document.createElement('label');
+  photo.className = 'detail-photo';
+  photo.title = image ? 'Byt bild' : 'Lägg till bild';
+
+  const file = document.createElement('input');
+  file.type = 'file';
+  file.accept = IMAGE_ACCEPT;
+  file.hidden = true;
+  file.addEventListener('change', () => {
+    const f = file.files[0];
+    file.value = '';
+    if (f) onFile(f, photo);
+  });
+  photo.append(file);
+
+  if (image) {
+    const img = document.createElement('img');
+    img.src = image.card.url;
+    img.alt = '';
+    photo.append(img);
+  } else {
+    photo.append(document.createTextNode('Klicka för att lägga till bild'));
+  }
+  return photo;
+}
+
+// PUT a File to `${base}/image` as multipart/form-data. Toggles the 'busy'
+// class on labelEl. Returns the parsed JSON; throws on error (incl. too large).
+export async function uploadImageFile(base, file, labelEl) {
+  if (file.size > MAX_IMAGE_BYTES) throw new Error('Bilden är för stor (max 20 MB).');
+  const form = new FormData();
+  form.append('image', file);
+  labelEl.classList.add('busy');
+  try {
+    return await api(base + '/image', { method: 'PUT', body: form });
+  } catch (err) {
+    labelEl.classList.remove('busy');
+    throw err;
+  }
+}
+
 export function todayISO() {
   const d = new Date();
   const p = (n) => String(n).padStart(2, '0');

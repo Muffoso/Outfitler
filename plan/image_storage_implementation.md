@@ -290,6 +290,22 @@ CORS-metoderna utökade med `PATCH` i `middleware/security.js`.
   aktiva valet med ✓; knappen visar bara en ikon.
 - [x] Verifierat med jsdom (22 fall) + route-test + laddningstest av båda sidorna.
 
+### Fjärde iterationen (2026-09-08)
+
+- [x] **Outfits kan ha en egen bild** (utöver plaggens). Migration `011`
+  lägger bildkolumnerna på `outfits`. `PUT/DELETE /api/outfits/:id/image`
+  speglar plagg-endpointen. Egen bild vinner som kortbild i rutnätet;
+  detaljdialogen har en bildyta överst.
+- [x] Bilduppladdningen utbruten till delade delar: `services/imageUrls.js`
+  (signerade URL:er), `services/imageUpload.js` (`storeUpload`),
+  `middleware/receiveImage.js` (multer + felmappning), och frontend
+  `detailPhoto` / `uploadImageFile` i `shared.js`. Plagg-routen använder
+  nu samma delar.
+- [x] Verifierat med route-test (8 fall: outfit upp/ersätt/radera/415, plagg
+  fungerar fortf.) + jsdom-laddning + outfit-regression (19).
+- [ ] Verifiera live: ladda upp en bild på en outfit → syns i rutnätet i
+  stället för collaget → byt/ta bort → collaget kommer tillbaka.
+
 ---
 
 ## Senare (ej i denna plan)
@@ -314,4 +330,5 @@ CORS-metoderna utökade med `PATCH` i `middleware/security.js`.
 `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`
 
 **Nya migrationer:** `006_create_garments.sql`, `007_create_outfits.sql`,
-`008_create_tags.sql`, `009_widen_rating_to_10.sql`, `010_create_wears.sql`
+`008_create_tags.sql`, `009_widen_rating_to_10.sql`, `010_create_wears.sql`,
+`011_add_outfit_image.sql`

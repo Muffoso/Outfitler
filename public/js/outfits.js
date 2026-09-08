@@ -1,7 +1,7 @@
 import { initAuth, logout } from './auth.js';
 import {
   api, jsonHeaders, starRow, tagChips, tagAddForm, spacer, wearSection,
-  createTagFilter, createSortMenu,
+  createTagFilter, createSortMenu, detailPhoto, uploadImageFile,
 } from './shared.js';
 
 await initAuth();
@@ -91,22 +91,33 @@ function tileEl(o) {
 
   const cover = document.createElement('div');
   cover.className = 'outfit-cover';
-  const thumbs = o.garmentIds.map(thumbFor).filter(Boolean).slice(0, 4);
-  const n = thumbs.length;
-  const cells = n === 0 ? 1 : (n <= 2 ? n : 4);
-  cover.style.gridTemplateColumns = cells === 1 ? '1fr' : '1fr 1fr';
-  cover.style.gridTemplateRows = cells <= 2 ? '1fr' : '1fr 1fr';
-  for (let i = 0; i < cells; i++) {
-    if (thumbs[i]) {
-      const img = document.createElement('img');
-      img.src = thumbs[i];
-      img.alt = '';
-      img.loading = 'lazy';
-      cover.append(img);
-    } else {
-      const cell = document.createElement('div');
-      cell.className = 'cell';
-      cover.append(cell);
+  if (o.image) {
+    // the outfit's own image wins over the garment collage
+    cover.style.gridTemplateColumns = '1fr';
+    cover.style.gridTemplateRows = '1fr';
+    const img = document.createElement('img');
+    img.src = o.image.thumb.url;
+    img.alt = '';
+    img.loading = 'lazy';
+    cover.append(img);
+  } else {
+    const thumbs = o.garmentIds.map(thumbFor).filter(Boolean).slice(0, 4);
+    const n = thumbs.length;
+    const cells = n === 0 ? 1 : (n <= 2 ? n : 4);
+    cover.style.gridTemplateColumns = cells === 1 ? '1fr' : '1fr 1fr';
+    cover.style.gridTemplateRows = cells <= 2 ? '1fr' : '1fr 1fr';
+    for (let i = 0; i < cells; i++) {
+      if (thumbs[i]) {
+        const img = document.createElement('img');
+        img.src = thumbs[i];
+        img.alt = '';
+        img.loading = 'lazy';
+        cover.append(img);
+      } else {
+        const cell = document.createElement('div');
+        cell.className = 'cell';
+        cover.append(cell);
+      }
     }
   }
   if (o.rating != null) {
@@ -170,6 +181,25 @@ async function recordWear(id, date) {
   return outfit;
 }
 
+async function uploadImage(id, file, labelEl) {
+  try {
+    const { outfit } = await uploadImageFile('/api/outfits/' + id, file, labelEl);
+    replaceInState(outfit);
+    renderGrid();
+    renderDetail();
+  } catch (err) {
+    alert('Kunde inte ladda upp bild: ' + err.message);
+  }
+}
+
+async function removeImage(id) {
+  if (!confirm('Ta bort outfit-bilden?')) return;
+  await mutateDetail(async () => {
+    const { outfit } = await api('/api/outfits/' + id + '/image', { method: 'DELETE' });
+    replaceInState(outfit);
+  });
+}
+
 function replaceInState(outfit) {
   const i = state.outfits.findIndex((o) => o.id === outfit.id);
   if (i >= 0) state.outfits[i] = outfit;
@@ -188,6 +218,8 @@ async function mutateDetail(fn) {
 function renderDetail() {
   const o = currentOutfit();
   if (!o) return;
+
+  const photo = detailPhoto(o.image, (file, labelEl) => uploadImage(o.id, file, labelEl));
 
   const body = document.createElement('div');
   body.className = 'detail-body';
@@ -325,6 +357,14 @@ function renderDetail() {
 
   const actions = document.createElement('div');
   actions.className = 'detail-actions';
+  if (o.image) {
+    const rmImg = document.createElement('button');
+    rmImg.type = 'button';
+    rmImg.className = 'btn btn-secondary btn-sm';
+    rmImg.textContent = 'Ta bort bild';
+    rmImg.addEventListener('click', () => removeImage(o.id));
+    actions.append(rmImg);
+  }
   const del = document.createElement('button');
   del.type = 'button';
   del.className = 'btn btn-danger btn-sm';
@@ -333,7 +373,7 @@ function renderDetail() {
   actions.append(del);
   body.append(actions);
 
-  detail.replaceChildren(body);
+  detail.replaceChildren(photo, body);
 }
 
 async function removeOutfit(id) {

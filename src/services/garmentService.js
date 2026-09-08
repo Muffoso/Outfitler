@@ -5,6 +5,7 @@
 const withTransaction = require('../db/withTransaction');
 const tagService = require('./tagService');
 const imageStore = require('./imageStore');
+const { buildImage } = require('./imageUrls');
 
 // garments.* plus derived wear stats.
 const GARMENT_SELECT = `garments.*,
@@ -16,23 +17,6 @@ const ORDER = {
   most_worn: 'wear_count DESC, garments.created_at DESC',
   last_worn: 'last_worn_on DESC NULLS LAST, garments.created_at DESC',
   created: 'garments.created_at DESC',
-};
-
-const buildImage = async (row) => {
-  if (!row.image_key_prefix) return null;
-  const dims = row.image_variants || {};
-  const [thumb, card, archive] = await Promise.all([
-    imageStore.signedUrl(`${row.image_key_prefix}/thumb.webp`),
-    imageStore.signedUrl(`${row.image_key_prefix}/card.webp`),
-    imageStore.signedUrl(`${row.image_key_prefix}/archive.webp`),
-  ]);
-  return {
-    thumb: { url: thumb, ...(dims.thumb || {}) },
-    card: { url: card, ...(dims.card || {}) },
-    archive: { url: archive, ...(dims.archive || {}) },
-    width: row.image_width,
-    height: row.image_height,
-  };
 };
 
 const serialize = async (row, tags) => ({

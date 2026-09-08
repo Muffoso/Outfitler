@@ -162,9 +162,9 @@ garment (
 
 Spara bara `image_key_prefix` + variantkarta; bygg URL:erna vid läsning.
 
-Om outfits senare ska ha egen bild görs samma sak på `outfit`-raden. En separat
-`image`-tabell införs bara om något plagg/outfit ska ha flera bilder – vilket
-inte är planerat.
+Samma bildkolumner finns på `outfit`-raden (migration 011) – en outfit kan ha
+en egen bild utöver plaggens. En separat `image`-tabell införs bara om något
+plagg/outfit ska ha flera bilder – vilket inte är planerat.
 
 ## 8. Backup
 

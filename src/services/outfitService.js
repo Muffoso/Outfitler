@@ -4,6 +4,8 @@
 const withTransaction = require('../db/withTransaction');
 const tagService = require('./tagService');
 const garmentService = require('./garmentService');
+const imageStore = require('./imageStore');
+const { buildImage } = require('./imageUrls');
 
 const OUTFIT_SELECT = `outfits.*,
   (SELECT count(*)::int FROM outfit_wears w WHERE w.outfit_id = outfits.id) AS wear_count,
@@ -16,13 +18,14 @@ const ORDER = {
   created: 'outfits.created_at DESC',
 };
 
-const serialize = (row, tags, garmentIds) => ({
+const serialize = async (row, tags, garmentIds) => ({
   id: row.id,
   name: row.name,
   rating: row.rating,
   notes: row.notes,
   garmentIds: garmentIds || [],
   tags: tags || [],
+  image: await buildImage(row),
   wearCount: row.wear_count ?? 0,
   lastWornOn: row.last_worn_on || null,
   createdAt: row.created_at,
@@ -50,7 +53,7 @@ const withMeta = async (db, rows) => {
     tagService.namesByOwner(db, 'outfit', ids),
     garmentIdsByOutfit(db, ids),
   ]);
-  return rows.map((r) => serialize(r, tagMap.get(r.id), garmentMap.get(r.id)));
+  return Promise.all(rows.map((r) => serialize(r, tagMap.get(r.id), garmentMap.get(r.id))));
 };
 
 const selectById = async (db, id) => {
@@ -206,12 +209,50 @@ const recordWear = async (pool, userId, id, wornOn) =>
     return outfit;
   });
 
-const remove = async (pool, userId, id) => {
+const setImage = async (pool, userId, id, img) => {
   const { rowCount } = await pool.query(
-    'DELETE FROM outfits WHERE id = $1 AND user_id = $2',
-    [id, userId]
+    `UPDATE outfits SET
+       image_key_prefix = $1, image_variants = $2, image_width = $3,
+       image_height = $4, image_bytes = $5, image_hash = $6,
+       image_updated_at = NOW(), updated_at = NOW()
+     WHERE id = $7 AND user_id = $8`,
+    [img.keyPrefix, JSON.stringify(img.variants), img.width, img.height, img.bytes, img.hash, id, userId]
   );
-  return rowCount > 0;
+  if (rowCount === 0) return null;
+  return getById(pool, userId, id);
 };
 
-module.exports = { list, getById, create, update, recordWear, remove };
+const clearImage = async (pool, userId, id) => {
+  const { rowCount } = await pool.query(
+    `UPDATE outfits SET
+       image_key_prefix = NULL, image_variants = NULL, image_width = NULL,
+       image_height = NULL, image_bytes = NULL, image_hash = NULL,
+       image_updated_at = NULL, updated_at = NOW()
+     WHERE id = $1 AND user_id = $2`,
+    [id, userId]
+  );
+  if (rowCount === 0) return null;
+  return getById(pool, userId, id);
+};
+
+// Raw row (with image_* columns) for internal use by the image routes.
+const getRow = async (pool, userId, id) => {
+  const { rows } = await pool.query(
+    'SELECT * FROM outfits WHERE id = $1 AND user_id = $2',
+    [id, userId]
+  );
+  return rows[0] || null;
+};
+
+const remove = async (pool, userId, id) => {
+  const row = await getRow(pool, userId, id);
+  if (!row) return false;
+  await pool.query('DELETE FROM outfits WHERE id = $1 AND user_id = $2', [id, userId]);
+  if (row.image_key_prefix) {
+    await imageStore.delPrefix(row.image_key_prefix)
+      .catch((err) => console.error('R2 cleanup after outfit delete failed:', err));
+  }
+  return true;
+};
+
+module.exports = { list, getById, getRow, create, update, recordWear, setImage, clearImage, remove };

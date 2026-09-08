@@ -2,8 +2,11 @@ const express = require('express');
 const { z } = require('zod');
 const pool = require('../db/pool');
 const outfitService = require('../services/outfitService');
+const imageStore = require('../services/imageStore');
+const { storeUpload } = require('../services/imageUpload');
 const { requireAuth } = require('../middleware/authenticate');
 const { validateBody, validateQuery } = require('../middleware/validate');
+const { receiveImage } = require('../middleware/receiveImage');
 
 const router = express.Router();
 
@@ -118,6 +121,55 @@ router.post('/:id/wear', validateBody(wearSchema), async (req, res) => {
   } catch (err) {
     console.error('Record outfit wear error:', err);
     res.status(500).json({ error: 'Failed to record wear' });
+  }
+});
+
+// Upload or replace the outfit's own image (separate from its garments' images).
+router.put('/:id/image', receiveImage, async (req, res) => {
+  try {
+    if (!req.file) return res.status(400).json({ error: 'No image file' });
+
+    const row = await outfitService.getRow(pool, req.user.id, req.params.id);
+    if (!row) return res.status(404).json({ error: 'Outfit not found' });
+
+    let img;
+    try {
+      img = await storeUpload(req.file.buffer, `users/${req.user.id}/outfits/${row.id}`);
+    } catch (err) {
+      if (err.code === 'UNSUPPORTED_TYPE') {
+        return res.status(415).json({ error: 'Unsupported image type (use JPEG, PNG, WebP or HEIC)' });
+      }
+      throw err;
+    }
+
+    const outfit = await outfitService.setImage(pool, req.user.id, row.id, img);
+
+    if (row.image_key_prefix && row.image_key_prefix !== img.keyPrefix) {
+      await imageStore.delPrefix(row.image_key_prefix)
+        .catch((e) => console.error('Old outfit image cleanup failed:', e));
+    }
+
+    res.json({ outfit });
+  } catch (err) {
+    console.error('Upload outfit image error:', err);
+    res.status(500).json({ error: 'Failed to upload image' });
+  }
+});
+
+router.delete('/:id/image', async (req, res) => {
+  try {
+    const row = await outfitService.getRow(pool, req.user.id, req.params.id);
+    if (!row) return res.status(404).json({ error: 'Outfit not found' });
+
+    const outfit = await outfitService.clearImage(pool, req.user.id, req.params.id);
+    if (row.image_key_prefix) {
+      await imageStore.delPrefix(row.image_key_prefix)
+        .catch((e) => console.error('Outfit image cleanup failed:', e));
+    }
+    res.json({ outfit });
+  } catch (err) {
+    console.error('Delete outfit image error:', err);
+    res.status(500).json({ error: 'Failed to delete image' });
   }
 });
 
