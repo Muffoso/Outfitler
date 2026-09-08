@@ -1,7 +1,7 @@
 # New Project Setup Guide
 
 Step-by-step instructions for standing up a new project from the
-`node-auth-boilerplate` template on Railway: repo, PostgreSQL, email/password
+`webapp-with-auth-template` template on Railway: repo, PostgreSQL, email/password
 auth, and Google OAuth.
 
 This guide is written from an actual run (the **Outfitler** project, 2026-09-07).
@@ -33,14 +33,15 @@ commit `fd5bd93`, 2026-09-07). Open the files and check:
 | `src/db/migrations/005_create_session.sql` | exists, creates the `session` table |
 
 If any is missing, do **Appendix A** first (or merge those commits into
-`node-auth-boilerplate`). Without them the first deploy either ships a hardcoded
-DB password or Google OAuth fails silently because the session table is absent.
+`webapp-with-auth-template`). Without them the first deploy either ships a
+hardcoded DB password or Google OAuth fails silently because the session table is
+absent.
 
 ---
 
 ## Step 1 — Create a new repo from the template
 
-1. Go to **github.com/Muffoso/node-auth-boilerplate**
+1. Go to **github.com/Muffoso/webapp-with-auth-template**
 2. Click **"Use this template" → "Create a new repository"**
 3. Name your repo, set visibility, click **"Create repository"**
 
