@@ -32,8 +32,8 @@
 Dokumenterad i [`outfitler_overview.md`](outfitler_overview.md) §2. Sammanfattning:
 
 - **plagg (garment):** `id`, `user_id`, bildkolumner (nullable, `image_storage.md`
-  §7), `rating` (SMALLINT 1–5, nullable), `archived` (bool), `created_at`,
-  `updated_at`. **Inget** namn/kategori/färg/märke/anteckning.
+  §7), `rating` (SMALLINT 1–5, nullable), `notes` (fritext, nullable),
+  `archived` (bool), `created_at`, `updated_at`. **Inget** namn/kategori/färg/märke.
 - **outfit:** `id`, `user_id`, `name` (obligatoriskt), `rating` (1–5, nullable),
   tidsstämplar. Ingen egen bild.
 - **tagg (tag):** `id`, `user_id`, `name` – unik per användare, skiftlägesokänsligt;
@@ -55,6 +55,7 @@ Tre filer, stil som migration 005: idempotent (`IF NOT EXISTS`), explicit
     `image_height INT`, `image_bytes INT`, `image_hash TEXT`,
     `image_updated_at TIMESTAMPTZ`,
     `rating SMALLINT CHECK (rating BETWEEN 1 AND 5)`,
+    `notes TEXT`,
     `archived BOOLEAN NOT NULL DEFAULT FALSE`,
     `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
     `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
@@ -92,10 +93,12 @@ inte finns eller inte ägs av användaren. Montera alla tre i `src/app.js` **fö
 `express.static`.
 
 - [ ] `src/services/garmentService.js` + `src/routes/garments.js`
-  - `POST   /api/garments` – skapar tomt plagg; body får innehålla `rating`, `tags[]`
+  - `POST   /api/garments` – skapar tomt plagg; body får innehålla `rating`,
+    `notes`, `tags[]`
   - `GET    /api/garments` – filter `?tag=`, `?rating=`, `?archived=`
   - `GET    /api/garments/:id`
-  - `PATCH  /api/garments/:id` – `rating`, `archived`, `tags[]` (ersätter taggsättet)
+  - `PATCH  /api/garments/:id` – `rating`, `notes`, `archived`, `tags[]`
+    (ersätter taggsättet)
   - `DELETE /api/garments/:id`
 - [ ] `src/services/outfitService.js` + `src/routes/outfits.js`
   - `POST   /api/outfits` – `name`, `garmentIds[]`, `rating?`, `tags[]?`
@@ -191,8 +194,8 @@ inte finns eller inte ägs av användaren. Montera alla tre i `src/app.js` **fö
 - [ ] Skapa/redigera plagg + **ladda upp/byt bild**:
   `<input type="file" accept="image/jpeg,image/png,image/webp,image/heic">`,
   `PUT /api/garments/:id/image` som `multipart/form-data`.
-- [ ] Betyg (1–5, ifylld/kontur enligt §6) och taggchips i detaljvyn; filterrad
-  på tagg/betyg/arkiverad ovanför rutnätet.
+- [ ] Betyg (1–5, ifylld/kontur enligt §6), taggchips och fritext­fält (`notes`)
+  i detaljvyn; filterrad på tagg/betyg/arkiverad ovanför rutnätet.
 - [ ] Klientvalidering: storlek < 20 MB, tillåten typ, förhandsvisning.
 - [ ] Ladd- och feltillstånd; "Byt bild" ersätter (ingen flera-bilder-UI).
 - [ ] `src/middleware/security.js` CSP: `imgSrc` tillåter redan `https:`. Vill

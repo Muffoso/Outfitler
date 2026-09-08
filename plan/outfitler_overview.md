@@ -24,6 +24,7 @@ samling plagg, också med betyg och taggar.
 - bildkolumner enligt [`image_storage.md`](image_storage.md) §7 – nullable tills
   en bild laddats upp (max en bild per plagg)
 - `rating` – heltal 1–5, nullable (tomt = ej betygsatt)
+- `notes` – frittextkommentar, nullable
 - `archived` – bool, dölj plagget utan att radera det
 - `created_at`, `updated_at`
 
