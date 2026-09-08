@@ -208,8 +208,8 @@ CORS-metoderna utökade med `PATCH` i `middleware/security.js`.
 - [x] Platshållare för bild i kortet ("Bilduppladdning kommer i Fas 5").
 - [x] CSP-fix: palett-boot flyttad från inline `<script>` till
   `public/js/palette-boot.js` (script-src `'self'` blockerar inline).
-- [ ] Verifiera i webbläsaren på live-URL:en: skapa plagg → sätt betyg + tagg →
-  skriv anteckning → filtrera på tagg → arkivera → ta bort.
+- [x] Verifierat i webbläsaren på live-URL:en (skapa/betyg/tagg/anteckning/
+  filter/arkivera/ta bort fungerar).
 
 ### 6b – bild i garderobsvyn (efter Fas 5)
 
