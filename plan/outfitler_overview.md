@@ -14,12 +14,45 @@ _TODO: mål, målgrupp, avgränsningar (vad appen INTE ska vara)._
 
 ## 2. Datamodell
 
-_TODO: definiera entiteter, fält och relationer._
+Medvetet avskalad. Ett **plagg** är i grunden ett foto med betyg och taggar –
+inget namn, ingen kategori, färg eller märke. En **outfit** är en namngiven
+samling plagg, också med betyg och taggar.
 
-- **Plagg (garment)** – _TODO: t.ex. namn, kategori, färg, märke, bild, anteckningar_
-- **Outfit** – _TODO: en namngiven samling plagg + metadata_
-- **Tagg** – _TODO: fritt definierade taggar, kopplade till plagg och/eller outfits_
-- **Rating** – _TODO: skala och betydelse, per plagg och per outfit_
+### plagg (garment)
+
+- `id`, `user_id` (ägare)
+- bildkolumner enligt [`image_storage.md`](image_storage.md) §7 – nullable tills
+  en bild laddats upp (max en bild per plagg)
+- `rating` – heltal 1–5, nullable (tomt = ej betygsatt)
+- `archived` – bool, dölj plagget utan att radera det
+- `created_at`, `updated_at`
+
+### outfit
+
+- `id`, `user_id`
+- `name` – kort etikett (obligatoriskt)
+- `rating` – 1–5, nullable
+- `created_at`, `updated_at`
+- kopplas till plagg via `outfit_garments` (många-till-många, med `position`
+  för visningsordning). Ingen egen bild – visas som sina plaggs bilder.
+
+### tagg (tag)
+
+- `id`, `user_id`, `name` – fritt formulerad, unik per användare
+  (skiftlägesokänsligt)
+- kopplas till plagg via `garment_tags` och till outfits via `outfit_tags`
+- skapas implicit när den sätts på ett plagg/outfit
+- neutrala chips i UI (§6) – ingen färg per tagg
+
+### betyg (rating)
+
+Ingen egen tabell – `rating`-kolumn på `garment` och `outfit`. Skala 1–5.
+
+### Ägande och radering
+
+Allt hänger på `user_id`, med `ON DELETE CASCADE` från `users`. Raderas ett
+plagg försvinner dess rader i join-tabellerna och dess R2-objekt (se
+[`image_storage.md`](image_storage.md) §2).
 
 ## 3. Huvudfunktioner
 
@@ -46,8 +79,8 @@ bakgrundsborttagning senare, en bild per plagg, uppladdning via appen) med
 motivering finns i avsnitt 10 i det dokumentet.
 
 Steg-för-steg-genomförande: **[`plan/image_storage_implementation.md`](image_storage_implementation.md)**
-(Fas 1 = definiera plaggmodellen i §2 nedan, sedan `garments`-tabell, plagg-API,
-`ImageStore`/R2, bildpipeline, garderobsvy).
+(datamodell → migrationer → API → `ImageStore`/R2 → bildpipeline → garderobsvy →
+outfit-byggare).
 
 ## 5. UI-vyer
 

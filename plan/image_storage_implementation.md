@@ -1,14 +1,15 @@
-# Outfitler – Implementationsplan: Bildhantering
+# Outfitler – Implementationsplan: datamodell + bildhantering
 
-> Genomför besluten i [`image_storage.md`](image_storage.md). Kryssa av steg
-> allteftersom – detta är en gemensam checklista.
+> Genomför datamodellen i [`outfitler_overview.md`](outfitler_overview.md) §2 och
+> besluten i [`image_storage.md`](image_storage.md). Kryssa av steg allteftersom
+> – detta är en gemensam checklista.
 >
 > **Verifiering:** allt körs på Railway (ingen lokal körning). Varje fas ska
 > lämna appen deploybar och verifierbar via deploy-loggar + live-URL.
 >
 > **Beroendeordning:** bildlösningen hänger bildfälten på `garment`-raden, så
-> plaggmodellen måste finnas först. Fas 1–3 bygger den grunden; Fas 4–6 är
-> själva bildlösningen.
+> plagg-, outfit- och taggmodellen byggs först (Fas 1–3). Fas 4–5 är själva
+> bildlösningen. Fas 6–7 är UI.
 
 ---
 
@@ -16,66 +17,98 @@
 
 | Fas | Innehåll | Leverabel |
 |---|---|---|
-| 1 | Datamodell för plagg (dokumentation) | Överenskommen kolumnlista |
-| 2 | `garments`-tabell + migration | Tom tabell i produktion |
-| 3 | Plagg-API (utan bild) | Plagg-CRUD live |
+| 1 | Datamodell (dokumentation) | Överenskommen modell – **klar** |
+| 2 | Migrationer: garments, outfits, tags + join-tabeller | Tomt schema i produktion |
+| 3 | API: garments, outfits, tags (utan bild) | CRUD + taggning + betyg live |
 | 4 | `ImageStore` + R2 | Appen kan skriva/läsa/radera i R2 |
 | 5 | Bildpipeline + upp­laddnings-endpoint | En bild per plagg end-to-end via API |
-| 6 | Frontend: garderobsvy | Lägga till plagg med bild i UI:t |
+| 6 | Frontend: garderobsvy | Plagg med bild, betyg och taggar i UI:t |
+| 7 | Frontend: outfit-byggare | Skapa outfits av plagg, betygsätt, tagga |
 
 ---
 
-## Fas 1 – Datamodell för plagg (förutsättning, görs gemensamt)
+## Fas 1 – Datamodell ✅ klar
 
-Mål: fylla i **Datamodell §2** i `outfitler_overview.md` tillräckligt för att
-`garments` ska kunna skapas. Ingen kod.
+Dokumenterad i [`outfitler_overview.md`](outfitler_overview.md) §2. Sammanfattning:
 
-- [ ] Beslut: fält på `garment` – utöver `id`, `user_id`, `created_at`,
-  `updated_at`. Förslag: `name`, `category`, `color`, `brand`, `notes`,
-  `archived` (bool). Taggar och betyg kan skjutas till senare fas.
-- [ ] Beslut: relation `garment` → `user` (ägs av `user_id UUID REFERENCES users(id)`).
-- [ ] Beslut: bekräfta bildkolumnerna från `image_storage.md` §7:
-  `image_key_prefix`, `image_variants jsonb`, `image_width`, `image_height`,
-  `image_bytes`, `image_hash`, `image_updated_at` (alla nullable).
-- [ ] Beslut: ska outfits/taggar/betyg med i samma omgång eller egen plan?
-- [ ] Dokumentera i `outfitler_overview.md` §2 (och ev. eget `plan/data_model.md`
-  om det blir omfattande).
+- **plagg (garment):** `id`, `user_id`, bildkolumner (nullable, `image_storage.md`
+  §7), `rating` (SMALLINT 1–5, nullable), `archived` (bool), `created_at`,
+  `updated_at`. **Inget** namn/kategori/färg/märke/anteckning.
+- **outfit:** `id`, `user_id`, `name` (obligatoriskt), `rating` (1–5, nullable),
+  tidsstämplar. Ingen egen bild.
+- **tagg (tag):** `id`, `user_id`, `name` – unik per användare, skiftlägesokänsligt;
+  skapas implicit när den sätts.
+- **betyg:** kolumn på `garment` och `outfit`, ingen egen tabell.
+- **Join:** `outfit_garments` (med `position`), `garment_tags`, `outfit_tags`.
+- Allt `ON DELETE CASCADE` från `users`.
 
 ---
 
-## Fas 2 – `garments`-tabell + migration
+## Fas 2 – Migrationer (schema)
 
-- [ ] `src/db/migrations/006_create_garments.sql`:
-  - `CREATE TABLE IF NOT EXISTS garments (...)` enligt Fas 1, med bild­kolumnerna
-    nullable.
-  - `user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE`.
-  - `CREATE INDEX IF NOT EXISTS idx_garments_user_id ON garments(user_id);`
-  - Explicit `GRANT SELECT, INSERT, UPDATE, DELETE ON garments TO app_user;`
-    (som migration 005 – `ALTER DEFAULT PRIVILEGES` i 004 täcker det också,
-    men var explicit).
-- [ ] Kör migrationen mot `MIGRATION_DATABASE_URL` enligt
+Tre filer, stil som migration 005: idempotent (`IF NOT EXISTS`), explicit
+`GRANT` till `app_user`, `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`.
+
+- [ ] `src/db/migrations/006_create_garments.sql`
+  - `garments`: `id`, `user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE`,
+    `image_key_prefix TEXT`, `image_variants JSONB`, `image_width INT`,
+    `image_height INT`, `image_bytes INT`, `image_hash TEXT`,
+    `image_updated_at TIMESTAMPTZ`,
+    `rating SMALLINT CHECK (rating BETWEEN 1 AND 5)`,
+    `archived BOOLEAN NOT NULL DEFAULT FALSE`,
+    `created_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`,
+    `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
+  - `idx_garments_user_id`
+  - `GRANT SELECT, INSERT, UPDATE, DELETE ON garments TO app_user;`
+- [ ] `src/db/migrations/007_create_outfits.sql`
+  - `outfits`: `id`, `user_id` (FK CASCADE), `name TEXT NOT NULL`,
+    `rating SMALLINT CHECK (rating BETWEEN 1 AND 5)`, `created_at`, `updated_at`
+  - `outfit_garments`: `outfit_id UUID REFERENCES outfits(id) ON DELETE CASCADE`,
+    `garment_id UUID REFERENCES garments(id) ON DELETE CASCADE`,
+    `position SMALLINT NOT NULL DEFAULT 0`,
+    `PRIMARY KEY (outfit_id, garment_id)`
+  - `idx_outfits_user_id`, `idx_outfit_garments_garment_id`
+  - `GRANT` på båda tabellerna
+- [ ] `src/db/migrations/008_create_tags.sql`
+  - `tags`: `id`, `user_id` (FK CASCADE), `name TEXT NOT NULL`, `created_at`
+  - `CREATE UNIQUE INDEX ... ON tags (user_id, lower(name));`
+  - `garment_tags`: `garment_id` + `tag_id` (båda FK CASCADE),
+    `PRIMARY KEY (garment_id, tag_id)`
+  - `outfit_tags`: `outfit_id` + `tag_id` (båda FK CASCADE),
+    `PRIMARY KEY (outfit_id, tag_id)`
+  - `idx_garment_tags_tag_id`, `idx_outfit_tags_tag_id`
+  - `GRANT` på alla tre tabellerna
+- [ ] Kör migrationerna mot `MIGRATION_DATABASE_URL` enligt
   [`auth-database-railway-setup.md`](auth-database-railway-setup.md).
-- [ ] Verifiera i Railway-loggen: `✅ Executed: 006_create_garments.sql`.
+- [ ] Verifiera i Railway-loggen: `✅ Executed: 006…`, `007…`, `008…`.
 
 ---
 
-## Fas 3 – Plagg-API (utan bild)
+## Fas 3 – API (utan bild)
 
-- [ ] `src/services/garmentService.js` – frågor mot `pool`, **alltid** filtrerade
-  på `user_id`. `list`, `getById`, `create`, `update`, `remove`.
-- [ ] `src/routes/garments.js` – `requireAuth` på alla routes, zod-validering
-  (samma mönster som `routes/auth.js`):
-  - `POST   /api/garments`
-  - `GET    /api/garments`
+Alla routes: `requireAuth`, zod-validering (mönster som `routes/auth.js`), varje
+fråga filtrerad på `req.user.id`, `app.locals.limiters.general`. 404 om raden
+inte finns eller inte ägs av användaren. Montera alla tre i `src/app.js` **före**
+`express.static`.
+
+- [ ] `src/services/garmentService.js` + `src/routes/garments.js`
+  - `POST   /api/garments` – skapar tomt plagg; body får innehålla `rating`, `tags[]`
+  - `GET    /api/garments` – filter `?tag=`, `?rating=`, `?archived=`
   - `GET    /api/garments/:id`
-  - `PATCH  /api/garments/:id`
+  - `PATCH  /api/garments/:id` – `rating`, `archived`, `tags[]` (ersätter taggsättet)
   - `DELETE /api/garments/:id`
-  - 404 om plagget inte finns eller inte ägs av `req.user.id`.
-- [ ] Montera i `src/app.js` före `express.static`:
-  `app.use('/api/garments', require('./routes/garments'));`
-- [ ] Rate limiting: applicera `app.locals.limiters.general` på routern.
-- [ ] Verifiera live med en inloggad access-token: skapa → lista → hämta →
-  uppdatera → radera ett plagg.
+- [ ] `src/services/outfitService.js` + `src/routes/outfits.js`
+  - `POST   /api/outfits` – `name`, `garmentIds[]`, `rating?`, `tags[]?`
+  - `GET    /api/outfits` – filter `?tag=`, `?rating=`
+  - `GET    /api/outfits/:id` – inkl. ingående plagg (med bild-URL:er efter Fas 5)
+  - `PATCH  /api/outfits/:id` – `name`, `rating`, `garmentIds[]`, `tags[]`
+  - `DELETE /api/outfits/:id`
+- [ ] `src/services/tagService.js` + `src/routes/tags.js`
+  - `GET    /api/tags` – användarens taggar + antal användningar
+  - `DELETE /api/tags/:id` – tar bort taggen och alla dess kopplingar
+  - get-or-create per namn (skiftlägesokänsligt) när taggar sätts via garment/outfit
+- [ ] Verifiera live med inloggad token: skapa plagg → sätt betyg + tagg → skapa
+  outfit av två plagg → betygsätt outfit → filtrera plagg på tagg → `GET /api/tags`.
 
 ---
 
@@ -158,12 +191,26 @@ Mål: fylla i **Datamodell §2** i `outfitler_overview.md` tillräckligt för at
 - [ ] Skapa/redigera plagg + **ladda upp/byt bild**:
   `<input type="file" accept="image/jpeg,image/png,image/webp,image/heic">`,
   `PUT /api/garments/:id/image` som `multipart/form-data`.
+- [ ] Betyg (1–5, ifylld/kontur enligt §6) och taggchips i detaljvyn; filterrad
+  på tagg/betyg/arkiverad ovanför rutnätet.
 - [ ] Klientvalidering: storlek < 20 MB, tillåten typ, förhandsvisning.
 - [ ] Ladd- och feltillstånd; "Byt bild" ersätter (ingen flera-bilder-UI).
 - [ ] `src/middleware/security.js` CSP: `imgSrc` tillåter redan `https:`. Vill
   vi strama åt senare: lägg till R2-endpointen explicit.
 - [ ] Verifiera i webbläsaren på live-URL:en: skapa plagg → ladda upp bild →
-  syns i rutnätet → byt bild → uppdateras.
+  sätt betyg + tagg → syns i rutnätet → filtrera → byt bild → uppdateras.
+
+---
+
+## Fas 7 – Frontend: outfit-byggare
+
+- [ ] `public/outfits.html` + `public/js/outfits.js` – lista över outfits, var
+  och en visad som sina plaggs `thumb`-bilder.
+- [ ] Bygg-vy: välj plagg ur garderoben, ge outfiten `name`, spara via
+  `POST /api/outfits`.
+- [ ] Redigera: lägg till/ta bort plagg, betygsätt, tagga.
+- [ ] Verifiera live: skapa outfit av plagg med bild → syns i listan → redigera →
+  radera.
 
 ---
 
@@ -176,6 +223,8 @@ Mål: fylla i **Datamodell §2** i `outfitler_overview.md` tillräckligt för at
 - AVIF-varianter, `srcset` 2× för retina.
 - Bakgrundsborttagning (`image_storage.md` §10, beslut 4).
 - Outfit-bilder (samma mönster på `outfit`-raden).
+- Rikare taggning (färgkodning från fast lågmättad uppsättning, `overview` §6).
+- Filtrering/sök på fler axlar (`overview` §3).
 
 ---
 
@@ -186,4 +235,5 @@ Mål: fylla i **Datamodell §2** i `outfitler_overview.md` tillräckligt för at
 **Railway-miljövariabler (app-tjänsten):**
 `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`
 
-**Nya migrationer:** `006_create_garments.sql` (+ ev. fler i Fas 1-beslutet)
+**Nya migrationer:** `006_create_garments.sql`, `007_create_outfits.sql`,
+`008_create_tags.sql`
