@@ -3,37 +3,104 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>My App</title>
-  <script>
-    /* Sätt sparad palett före render så inget hoppar. Se js/theme.js. */
-    try {
-      var p = localStorage.getItem('outfitler:palette');
-      document.documentElement.dataset.palette = (p === 'bold' || p === 'muted') ? p : 'muted';
-    } catch (e) {
-      document.documentElement.dataset.palette = 'muted';
-    }
-  </script>
+  <title>Outfitler</title>
+  <script src="/js/palette-boot.js"></script>
   <link rel="stylesheet" href="/css/tokens.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
-    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-    .container { max-width: 600px; margin: 50px auto; padding: 20px; background: var(--surface); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); }
-    h1 { margin-bottom: 20px; font-size: 28px; color: var(--text-strong); }
-    .user-info { margin-bottom: 20px; padding: 10px; background: var(--surface-2); border-radius: 4px; }
-    .user-info p { margin: 5px 0; }
-    button { padding: 10px 20px; background: var(--surface-2); color: var(--text); border: 1px solid var(--border); border-radius: 4px; cursor: pointer; font-weight: 500; }
-    button:hover { background: var(--border); }
+    body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: var(--text); }
+
+    .topbar { display: flex; align-items: center; gap: 12px; padding: 14px 20px;
+      background: var(--surface); border-bottom: 1px solid var(--border); }
+    .topbar h1 { font-size: 20px; color: var(--text-strong); letter-spacing: .5px; }
+    .topbar .spacer { flex: 1; }
+    .topbar .palette-toggle { position: static; box-shadow: none; }
+
+    .wrap { max-width: 1100px; margin: 0 auto; padding: 20px; }
+
+    .toolbar { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; margin-bottom: 20px; }
+    .toolbar .spacer { flex: 1; }
+
+    .btn { padding: 9px 16px; border-radius: 6px; border: 1px solid transparent;
+      font: inherit; font-weight: 500; cursor: pointer; }
+    .btn-primary { background: var(--accent); color: var(--on-accent); }
+    .btn-primary:hover { background: var(--accent-hover); }
+    .btn-secondary { background: var(--surface-2); color: var(--text); border-color: var(--border); }
+    .btn-secondary:hover { background: var(--border); }
+    .btn-danger { background: transparent; color: var(--danger); border-color: var(--border); }
+    .btn-danger:hover { background: var(--surface-2); }
+    .btn-sm { padding: 5px 10px; font-size: 13px; }
+
+    select, input[type="text"], textarea {
+      font: inherit; color: var(--text); background: var(--surface-2);
+      border: 1px solid var(--border); border-radius: 6px; padding: 8px 10px; }
+    input:focus, select:focus, textarea:focus {
+      outline: 2px solid var(--accent); outline-offset: 1px; border-color: var(--accent); }
+
+    .grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 16px; }
+
+    .card { background: var(--surface); border: 1px solid var(--border);
+      border-radius: var(--radius); overflow: hidden; display: flex; flex-direction: column; }
+    .card.archived { opacity: .55; }
+
+    .photo { aspect-ratio: 3 / 4; background: var(--surface-2); border-bottom: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center; text-align: center;
+      padding: 12px; color: var(--text-muted); font-size: 12px; }
+
+    .card-body { padding: 12px; display: flex; flex-direction: column; gap: 10px; }
+
+    .stars { display: flex; gap: 3px; }
+    .star { background: none; border: none; padding: 0; cursor: pointer;
+      font-size: 20px; line-height: 1; color: var(--text-muted); }
+    .star.on { color: var(--text-strong); }
+
+    .chips { display: flex; flex-wrap: wrap; gap: 6px; }
+    .chip { display: inline-flex; align-items: center; gap: 5px; font-size: 13px;
+      background: var(--surface-2); color: var(--text); border: 1px solid var(--border);
+      border-radius: 999px; padding: 3px 4px 3px 9px; }
+    .chip button { background: none; border: none; padding: 0; cursor: pointer;
+      color: var(--text-muted); font-size: 15px; line-height: 1; }
+    .chip button:hover { color: var(--danger); }
+    .tag-add { width: 100%; font-size: 13px; padding: 6px 9px; }
+
+    .notes { width: 100%; min-height: 52px; resize: vertical; font-size: 13px; }
+
+    .card-actions { display: flex; gap: 8px; justify-content: space-between; }
+
+    .empty { text-align: center; color: var(--text-muted); padding: 60px 20px;
+      border: 1px dashed var(--border); border-radius: var(--radius); }
+    .muted { color: var(--text-muted); font-size: 13px; }
   </style>
 </head>
 <body>
-  <button type="button" class="palette-toggle" data-palette-toggle>Palett: Dämpad</button>
-  <div class="container">
-    <h1>Welcome</h1>
-    <div id="userInfo" class="user-info">
-      <p>Loading user info...</p>
-    </div>
-    <button id="logoutBtn">Log out</button>
+  <div class="topbar">
+    <h1>Outfitler</h1>
+    <span class="spacer"></span>
+    <button type="button" class="palette-toggle" data-palette-toggle>Palett: Dämpad</button>
+    <button type="button" id="logoutBtn" class="btn btn-secondary btn-sm">Logga ut</button>
   </div>
+
+  <div class="wrap">
+    <div class="toolbar">
+      <button type="button" id="newBtn" class="btn btn-primary">+ Nytt plagg</button>
+      <span class="spacer"></span>
+      <input type="text" id="filterTag" list="tagList" placeholder="Filtrera på tagg">
+      <select id="filterRating">
+        <option value="">Alla betyg</option>
+        <option value="5">5 ★</option>
+        <option value="4">4 ★</option>
+        <option value="3">3 ★</option>
+        <option value="2">2 ★</option>
+        <option value="1">1 ★</option>
+      </select>
+      <label class="muted"><input type="checkbox" id="filterArchived"> Visa arkiverade</label>
+    </div>
+
+    <div id="grid" class="grid"></div>
+    <p id="empty" class="empty" hidden>Inga plagg än. Klicka <strong>+ Nytt plagg</strong> för att lägga till ett.</p>
+  </div>
+
+  <datalist id="tagList"></datalist>
 
   <script type="module" src="/js/theme.js"></script>
   <script type="module" src="/js/index.js"></script>

@@ -22,7 +22,8 @@
 | 3 | API: garments, outfits, tags (utan bild) | CRUD + taggning + betyg live |
 | 4 | `ImageStore` + R2 | Appen kan skriva/läsa/radera i R2 |
 | 5 | Bildpipeline + upp­laddnings-endpoint | En bild per plagg end-to-end via API |
-| 6 | Frontend: garderobsvy | Plagg med bild, betyg och taggar i UI:t |
+| 6a | Frontend: garderobsvy (Fas 3-funktioner) | Plagg, betyg, taggar, notes i UI:t |
+| 6b | Frontend: bild i garderobsvyn (efter Fas 5) | Ladda upp/byt bild i UI:t |
 | 7 | Frontend: outfit-byggare | Skapa outfits av plagg, betygsätt, tagga |
 
 ---
@@ -195,21 +196,30 @@ CORS-metoderna utökade med `PATCH` i `middleware/security.js`.
 
 ## Fas 6 – Frontend: garderobsvy
 
-- [ ] `public/wardrobe.html` (eller bygg ut `index.html`) – rutnät av plagg med
-  `thumb`, tydligt tom-läge. Palett-tokens (`var(--...)`), palettväxlaren kvar.
-- [ ] `public/js/wardrobe.js` – `authFetch('/api/garments')`, rendera kort;
-  klick → detaljvy med `card`-bilden.
-- [ ] Skapa/redigera plagg + **ladda upp/byt bild**:
-  `<input type="file" accept="image/jpeg,image/png,image/webp,image/heic">`,
-  `PUT /api/garments/:id/image` som `multipart/form-data`.
-- [ ] Betyg (1–5, ifylld/kontur enligt §6), taggchips och fritext­fält (`notes`)
-  i detaljvyn; filterrad på tagg/betyg/arkiverad ovanför rutnätet.
+### 6a – garderobsvyn (Fas 3-funktioner, gjord före Fas 4–5)
+
+- [x] `public/index.html` byggd om till garderobsvyn: topbar (titel, palett­växlare,
+  logga ut), verktygsrad (+ Nytt plagg, filter på tagg/betyg/arkiverad), rutnät
+  av plaggkort. Palett-tokens genomgående.
+- [x] `public/js/index.js` – `authFetch` mot `/api/garments`, `/api/tags`; skapa
+  plagg, sätt betyg (1–5 stjärnor), lägg till/ta bort taggchips (datalist med
+  befintliga taggar), redigera `notes` (spara vid blur), arkivera/återställ,
+  ta bort. Varje mutation laddar om lista + taggar så filter/räknare stämmer.
+- [x] Platshållare för bild i kortet ("Bilduppladdning kommer i Fas 5").
+- [x] CSP-fix: palett-boot flyttad från inline `<script>` till
+  `public/js/palette-boot.js` (script-src `'self'` blockerar inline).
+- [ ] Verifiera i webbläsaren på live-URL:en: skapa plagg → sätt betyg + tagg →
+  skriv anteckning → filtrera på tagg → arkivera → ta bort.
+
+### 6b – bild i garderobsvyn (efter Fas 5)
+
+- [ ] Ersätt bildplatshållaren med `thumb`/`card` + `<input type="file"
+  accept="image/jpeg,image/png,image/webp,image/heic">`, `PUT /api/garments/:id/image`
+  som `multipart/form-data`.
 - [ ] Klientvalidering: storlek < 20 MB, tillåten typ, förhandsvisning.
-- [ ] Ladd- och feltillstånd; "Byt bild" ersätter (ingen flera-bilder-UI).
-- [ ] `src/middleware/security.js` CSP: `imgSrc` tillåter redan `https:`. Vill
-  vi strama åt senare: lägg till R2-endpointen explicit.
-- [ ] Verifiera i webbläsaren på live-URL:en: skapa plagg → ladda upp bild →
-  sätt betyg + tagg → syns i rutnätet → filtrera → byt bild → uppdateras.
+- [ ] "Byt bild" ersätter (ingen flera-bilder-UI).
+- [ ] `src/middleware/security.js` CSP: `imgSrc` tillåter redan `https:`; strama
+  åt till R2-endpointen om vi vill.
 
 ---
 

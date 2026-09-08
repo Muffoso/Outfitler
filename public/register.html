@@ -4,15 +4,7 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>Create account - My App</title>
-  <script>
-    /* Sätt sparad palett före render så inget hoppar. Se js/theme.js. */
-    try {
-      var p = localStorage.getItem('outfitler:palette');
-      document.documentElement.dataset.palette = (p === 'bold' || p === 'muted') ? p : 'muted';
-    } catch (e) {
-      document.documentElement.dataset.palette = 'muted';
-    }
-  </script>
+  <script src="/js/palette-boot.js"></script>
   <link rel="stylesheet" href="/css/tokens.css">
   <style>
     * { margin: 0; padding: 0; box-sizing: border-box; }
