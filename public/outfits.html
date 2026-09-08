@@ -1,0 +1,77 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Outfits – Outfitler</title>
+  <script src="/js/palette-boot.js"></script>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/app.css">
+  <style>
+    .outfit-tile { cursor: pointer; }
+    .outfit-cover { position: relative; aspect-ratio: 3 / 4; overflow: hidden;
+      border: 1px solid var(--border); border-radius: var(--radius);
+      background: var(--surface-2); display: grid; gap: 1px; }
+    .outfit-cover img { width: 100%; height: 100%; object-fit: cover; }
+    .outfit-cover .cell { background: var(--surface-2); }
+    .outfit-name { font-size: 13px; margin-top: 6px; color: var(--text-strong);
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+
+    .section-label { font-size: 12px; color: var(--text-muted); }
+    .name-input { width: 100%; font-size: 15px; font-weight: 600; }
+
+    .og-grid { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px; }
+    .og { position: relative; aspect-ratio: 3 / 4; border-radius: 6px; overflow: hidden;
+      background: var(--surface-2); border: 1px solid var(--border);
+      display: flex; align-items: center; justify-content: center; color: var(--text-muted); }
+    .og img { width: 100%; height: 100%; object-fit: cover; }
+    .og .rm { position: absolute; top: 2px; right: 2px; width: 18px; height: 18px;
+      padding: 0; line-height: 1; font-size: 12px; border-radius: 50%;
+      background: var(--surface); border: 1px solid var(--border); color: var(--text); cursor: pointer; }
+    .picker { display: grid; grid-template-columns: repeat(4, 1fr); gap: 6px;
+      max-height: 230px; overflow-y: auto; padding: 4px;
+      border: 1px solid var(--border); border-radius: 6px; }
+    .picker .og { cursor: pointer; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <h1>Outfitler</h1>
+    <nav class="nav">
+      <a href="/">Garderob</a>
+      <a href="/outfits.html" class="active">Outfits</a>
+    </nav>
+    <span class="spacer"></span>
+    <div data-palette-picker></div>
+    <button type="button" id="logoutBtn" class="btn btn-secondary btn-sm">Logga ut</button>
+  </div>
+
+  <div class="wrap">
+    <div class="toolbar">
+      <div class="toolbar-row">
+        <button type="button" id="newBtn" class="btn btn-primary">+ Ny outfit</button>
+        <span class="spacer"></span>
+        <select id="filterRating" aria-label="Filtrera på betyg">
+          <option value="">Alla betyg</option>
+        </select>
+      </div>
+      <div class="toolbar-row" id="tagFilterRow" hidden>
+        <span class="filter-label">Taggar:</span>
+        <div class="filter-tags" id="filterTags"></div>
+        <span class="segmented" id="matchToggle" hidden>
+          <button type="button" data-match="any" class="on">Någon</button>
+          <button type="button" data-match="all">Alla</button>
+        </span>
+      </div>
+    </div>
+
+    <div id="grid" class="grid"></div>
+    <p id="empty" class="empty" hidden>Inga outfits än. Klicka <strong>+ Ny outfit</strong>.</p>
+  </div>
+
+  <dialog id="detail"></dialog>
+
+  <script type="module" src="/js/theme.js"></script>
+  <script type="module" src="/js/outfits.js"></script>
+</body>
+</html>

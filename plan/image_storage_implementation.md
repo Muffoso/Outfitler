@@ -24,7 +24,7 @@
 | 5 | Bildpipeline + upp­laddnings-endpoint | En bild per plagg end-to-end via API — **klar, verifiera live** |
 | 6a | Frontend: garderobsvy (Fas 3-funktioner) | Plagg, betyg, taggar, notes i UI:t — **klar** |
 | 6b | Frontend: bild i garderobsvyn | Ladda upp/byt/ta bort bild i UI:t — **klar, verifiera live** |
-| 7 | Frontend: outfit-byggare | Skapa outfits av plagg, betygsätt, tagga |
+| 7 | Frontend: outfit-byggare | Skapa outfits av plagg, betygsätt, tagga — **klar, verifiera live** |
 
 ---
 
@@ -218,13 +218,20 @@ CORS-metoderna utökade med `PATCH` i `middleware/security.js`.
 
 ## Fas 7 – Frontend: outfit-byggare
 
-- [ ] `public/outfits.html` + `public/js/outfits.js` – lista över outfits, var
-  och en visad som sina plaggs `thumb`-bilder.
-- [ ] Bygg-vy: välj plagg ur garderoben, ge outfiten `name`, spara via
-  `POST /api/outfits`.
-- [ ] Redigera: lägg till/ta bort plagg, betygsätt, tagga, fritext (`notes`).
-- [ ] Verifiera live: skapa outfit av plagg med bild → syns i listan → redigera →
-  radera.
+- [x] Delade UI-delar brutna ut: `public/css/app.css` (chrome + komponenter,
+  laddas av båda sidorna) och `public/js/shared.js` (`api`, `starRow`,
+  `tagChips`, `tagAddForm`, …). `index.js` refaktorerad att använda dem.
+- [x] Nav i topbaren: **Garderob | Outfits** på båda sidorna.
+- [x] `public/outfits.html` + `public/js/outfits.js` – rutnät (3 per rad) där
+  varje outfit visas som en collage-cover av sina plaggs `thumb`-bilder +
+  namn + betygsbadge. Klick → detaljdialog.
+- [x] Detaljdialog: redigera `name`, betyg (1–10), taggar, `notes`; lista över
+  ingående plagg med ×; "+ Lägg till plagg" öppnar en väljare med garderobens
+  övriga plagg; ta bort outfit. "+ Ny outfit" skapar och öppnar dialogen.
+- [x] Verifierat med jsdom (19 fall: skapa, lägg till/ta bort plagg via väljare,
+  betyg, namnbyte, tagg, rutnät-cover, radera) + wardrobe-regression (12 fall).
+- [ ] Verifiera live: skapa outfit → lägg till plagg med bild → syns i rutnätet
+  som collage → betygsätt/tagga → ta bort.
 
 ---
 

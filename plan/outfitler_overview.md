@@ -86,8 +86,22 @@ outfit-byggare).
 
 ## 5. UI-vyer
 
-_TODO: huvudvyer – garderobsöversikt, outfit-byggare, detaljvy för plagg/outfit,
-filterpanel._
+Web app, två sidor med gemensam topbar (nav: Garderob | Outfits, palettväxlare,
+logga ut). Delad CSS i `public/css/app.css`, delade JS-komponenter i
+`public/js/shared.js`.
+
+- **Garderob** (`/`, `index.html`) – rutnät med 3 plagg per rad, **bara bilden**
+  (liten betygsbadge). Verktygsrad: `+ Nytt plagg`, betygsfilter, växelchips per
+  tagg + Någon/Alla, "visa arkiverade".
+- **Plaggdetalj** – `<dialog>` som öppnas vid klick: bild (ladda upp/byt/ta bort),
+  betyg 1–10, taggar, anteckning, arkivera, ta bort.
+- **Outfits** (`/outfits.html`) – rutnät med 3 per rad, varje outfit som en
+  collage-cover av sina plaggs bilder + namn + betygsbadge. Samma filter.
+- **Outfit-detalj / byggare** – `<dialog>`: namn, betyg, taggar, anteckning,
+  lista över ingående plagg (× för att ta bort), plaggväljare för att lägga
+  till ur garderoben, ta bort.
+
+_TODO: eventuell separat filtervy/sök; visa outfits ett plagg ingår i._
 
 ## 6. Färgpalett
 

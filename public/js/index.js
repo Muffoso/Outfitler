@@ -1,4 +1,5 @@
-import { initAuth, authFetch, logout } from './auth.js';
+import { initAuth, logout } from './auth.js';
+import { api, jsonHeaders, starRow, tagChips, tagAddForm, spacer } from './shared.js';
 
 await initAuth();
 
@@ -22,7 +23,6 @@ const state = {
   match: 'any',
 };
 
-// rating filter options 1..10
 for (let n = MAX_RATING; n >= 1; n--) {
   const opt = document.createElement('option');
   opt.value = String(n);
@@ -41,15 +41,6 @@ matchToggle.querySelectorAll('button').forEach((b) => b.addEventListener('click'
 }));
 detail.addEventListener('click', (e) => { if (e.target === detail) detail.close(); });
 
-async function api(url, options) {
-  const res = await authFetch(url, options);
-  if (!res.ok) {
-    const body = await res.json().catch(() => ({}));
-    throw new Error(body.error || `HTTP ${res.status}`);
-  }
-  return res.status === 204 ? null : res.json();
-}
-
 async function loadTags() {
   try {
     const { tags } = await api('/api/tags');
@@ -61,7 +52,6 @@ async function loadTags() {
 }
 
 function renderTagFilter() {
-  // drop filters whose tag no longer exists
   const names = new Set(state.tags.map((t) => t.name));
   for (const t of [...state.filterTags]) if (!names.has(t)) state.filterTags.delete(t);
 
@@ -136,7 +126,7 @@ function tileEl(g) {
 
 async function createGarment() {
   try {
-    const { garment } = await api('/api/garments', { method: 'POST', headers: json(), body: '{}' });
+    const { garment } = await api('/api/garments', { method: 'POST', headers: jsonHeaders(), body: '{}' });
     await refresh();
     openDetail(garment.id);
   } catch (err) {
@@ -146,7 +136,7 @@ async function createGarment() {
 
 async function patchGarment(id, patch) {
   const { garment } = await api('/api/garments/' + id, {
-    method: 'PATCH', headers: json(), body: JSON.stringify(patch),
+    method: 'PATCH', headers: jsonHeaders(), body: JSON.stringify(patch),
   });
   replaceInState(garment);
   return garment;
@@ -234,71 +224,15 @@ function renderDetail() {
   head.append(title, spacer(), closeBtn);
   body.append(head);
 
-  // rating 1..10
-  const stars = document.createElement('div');
-  stars.className = 'stars';
-  for (let n = 1; n <= MAX_RATING; n++) {
-    const s = document.createElement('button');
-    s.type = 'button';
-    s.className = 'star' + (g.rating >= n ? ' on' : '');
-    s.textContent = '★';
-    s.title = `${n} av ${MAX_RATING}`;
-    s.addEventListener('click', () => mutateDetail(() =>
-      patchGarment(g.id, { rating: g.rating === n ? null : n })));
-    stars.append(s);
-  }
-  if (g.rating != null) {
-    const clr = document.createElement('button');
-    clr.type = 'button';
-    clr.className = 'rating-clear';
-    clr.textContent = 'nollställ';
-    clr.addEventListener('click', () => mutateDetail(() => patchGarment(g.id, { rating: null })));
-    stars.append(clr);
-  }
-  body.append(stars);
+  body.append(starRow(g.rating, MAX_RATING, (value) =>
+    mutateDetail(() => patchGarment(g.id, { rating: value }))));
 
-  // tags
-  const chips = document.createElement('div');
-  chips.className = 'chips';
-  for (const tag of g.tags) {
-    const chip = document.createElement('span');
-    chip.className = 'chip';
-    chip.append(document.createTextNode(tag));
-    const x = document.createElement('button');
-    x.type = 'button';
-    x.textContent = '×';
-    x.title = 'Ta bort tagg';
-    x.addEventListener('click', () => mutateDetail(() =>
-      patchGarment(g.id, { tags: g.tags.filter((t) => t !== tag) })));
-    chip.append(x);
-    chips.append(chip);
-  }
-  body.append(chips);
+  body.append(tagChips(g.tags, (tag) =>
+    mutateDetail(() => patchGarment(g.id, { tags: g.tags.filter((t) => t !== tag) }))));
 
-  // add-tag form (submit works with the mobile keyboard's Enter/Go)
-  const form = document.createElement('form');
-  form.className = 'tag-form';
-  const input = document.createElement('input');
-  input.type = 'text';
-  input.placeholder = 'Lägg till tagg';
-  input.setAttribute('enterkeyhint', 'done');
-  input.autocapitalize = 'none';
-  input.autocomplete = 'off';
-  const addBtn = document.createElement('button');
-  addBtn.type = 'submit';
-  addBtn.className = 'btn btn-secondary btn-sm';
-  addBtn.textContent = 'Lägg till';
-  form.append(input, addBtn);
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const name = input.value.trim();
-    input.value = '';
-    if (!name || g.tags.some((t) => t.toLowerCase() === name.toLowerCase())) return;
-    mutateDetail(() => patchGarment(g.id, { tags: [...g.tags, name] }));
-  });
-  body.append(form);
+  body.append(tagAddForm(g.tags, (name) =>
+    mutateDetail(() => patchGarment(g.id, { tags: [...g.tags, name] }))));
 
-  // notes
   const notes = document.createElement('textarea');
   notes.className = 'notes';
   notes.placeholder = 'Anteckningar…';
@@ -315,7 +249,6 @@ function renderDetail() {
   });
   body.append(notes);
 
-  // actions
   const actions = document.createElement('div');
   actions.className = 'detail-actions';
   const arch = document.createElement('button');
@@ -371,18 +304,6 @@ async function removeImage(id) {
     const { garment } = await api('/api/garments/' + id + '/image', { method: 'DELETE' });
     replaceInState(garment);
   });
-}
-
-// ---- helpers ----
-
-function spacer() {
-  const s = document.createElement('span');
-  s.className = 'spacer';
-  return s;
-}
-
-function json() {
-  return { 'Content-Type': 'application/json' };
 }
 
 await refresh();
