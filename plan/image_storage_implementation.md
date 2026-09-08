@@ -49,7 +49,7 @@ Dokumenterad i [`outfitler_overview.md`](outfitler_overview.md) §2. Sammanfattn
 Tre filer, stil som migration 005: idempotent (`IF NOT EXISTS`), explicit
 `GRANT` till `app_user`, `id UUID PRIMARY KEY DEFAULT gen_random_uuid()`.
 
-- [ ] `src/db/migrations/006_create_garments.sql`
+- [x] `src/db/migrations/006_create_garments.sql`
   - `garments`: `id`, `user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE`,
     `image_key_prefix TEXT`, `image_variants JSONB`, `image_width INT`,
     `image_height INT`, `image_bytes INT`, `image_hash TEXT`,
@@ -61,7 +61,7 @@ Tre filer, stil som migration 005: idempotent (`IF NOT EXISTS`), explicit
     `updated_at TIMESTAMPTZ NOT NULL DEFAULT NOW()`
   - `idx_garments_user_id`
   - `GRANT SELECT, INSERT, UPDATE, DELETE ON garments TO app_user;`
-- [ ] `src/db/migrations/007_create_outfits.sql`
+- [x] `src/db/migrations/007_create_outfits.sql`
   - `outfits`: `id`, `user_id` (FK CASCADE), `name TEXT NOT NULL`,
     `rating SMALLINT CHECK (rating BETWEEN 1 AND 5)`, `notes TEXT`,
     `created_at`, `updated_at`
@@ -71,7 +71,7 @@ Tre filer, stil som migration 005: idempotent (`IF NOT EXISTS`), explicit
     `PRIMARY KEY (outfit_id, garment_id)`
   - `idx_outfits_user_id`, `idx_outfit_garments_garment_id`
   - `GRANT` på båda tabellerna
-- [ ] `src/db/migrations/008_create_tags.sql`
+- [x] `src/db/migrations/008_create_tags.sql`
   - `tags`: `id`, `user_id` (FK CASCADE), `name TEXT NOT NULL`, `created_at`
   - `CREATE UNIQUE INDEX ... ON tags (user_id, lower(name));`
   - `garment_tags`: `garment_id` + `tag_id` (båda FK CASCADE),
@@ -80,9 +80,12 @@ Tre filer, stil som migration 005: idempotent (`IF NOT EXISTS`), explicit
     `PRIMARY KEY (outfit_id, tag_id)`
   - `idx_garment_tags_tag_id`, `idx_outfit_tags_tag_id`
   - `GRANT` på alla tre tabellerna
-- [ ] Kör migrationerna mot `MIGRATION_DATABASE_URL` enligt
-  [`auth-database-railway-setup.md`](auth-database-railway-setup.md).
-- [ ] Verifiera i Railway-loggen: `✅ Executed: 006…`, `007…`, `008…`.
+- [ ] Push till `main`. `Dockerfile` CMD kör `node src/scripts/migrate.js` vid
+  varje deploy, så migrationerna körs automatiskt (alla filer körs om varje
+  gång – de nya är idempotenta).
+- [ ] Verifiera i Railway deploy-loggen: `✅ Executed: 006_create_garments.sql`,
+  `007_create_outfits.sql`, `008_create_tags.sql`, och att servern startar
+  (`✅ Server running on port …`).
 
 ---
 
