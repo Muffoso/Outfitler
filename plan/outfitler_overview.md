@@ -50,6 +50,14 @@ samling plagg, också med betyg och taggar.
 
 Ingen egen tabell – `rating`-kolumn på `garment` och `outfit`. Skala 1–10.
 
+### användning (wear)
+
+`outfit_wears` och `garment_wears` – en rad per gång ett plagg/outfit använts,
+med `worn_on` (datum, redigerbart). Att "använda" en outfit skapar en
+`outfit_wears`-rad + en `garment_wears`-rad per ingående plagg. Plagg och
+outfits exponerar `wearCount` + `lastWornOn` (härledda), och listorna kan
+sorteras på `mest använd` / `senast använd`.
+
 ### Ägande och radering
 
 Allt hänger på `user_id`, med `ON DELETE CASCADE` från `users`. Raderas ett
@@ -91,15 +99,18 @@ logga ut). Delad CSS i `public/css/app.css`, delade JS-komponenter i
 `public/js/shared.js`.
 
 - **Garderob** (`/`, `index.html`) – rutnät med 3 plagg per rad, **bara bilden**
-  (liten betygsbadge). Verktygsrad: `+ Nytt plagg`, betygsfilter, växelchips per
-  tagg + Någon/Alla, "visa arkiverade".
+  (liten betygsbadge). Verktygsrad: `+ Nytt plagg`, sortering (senast tillagd /
+  betyg / senast använd / mest använd), betygsfilter, sökbart taggfilter med
+  Någon/Alla, "visa arkiverade".
 - **Plaggdetalj** – `<dialog>` som öppnas vid klick: bild (ladda upp/byt/ta bort),
-  betyg 1–10, taggar, anteckning, arkivera, ta bort.
+  betyg 1–10, "använd"-knapp + användningsstatistik, taggar, anteckning,
+  arkivera, ta bort.
 - **Outfits** (`/outfits.html`) – rutnät med 3 per rad, varje outfit som en
-  collage-cover av sina plaggs bilder + namn + betygsbadge. Samma filter.
-- **Outfit-detalj / byggare** – `<dialog>`: namn, betyg, taggar, anteckning,
-  lista över ingående plagg (× för att ta bort), plaggväljare för att lägga
-  till ur garderoben, ta bort.
+  collage-cover av sina plaggs bilder + namn + betygsbadge + användningsrad.
+  Samma sortering/filter.
+- **Outfit-detalj / byggare** – `<dialog>`: namn, betyg, "använd"-knapp +
+  statistik, taggar, anteckning, lista över ingående plagg (× för att ta bort),
+  plaggväljare för att lägga till ur garderoben, ta bort.
 
 _TODO: eventuell separat filtervy/sök; visa outfits ett plagg ingår i._
 

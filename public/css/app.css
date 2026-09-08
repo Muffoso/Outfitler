@@ -23,7 +23,13 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .toolbar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .toolbar-row .spacer { flex: 1; }
 .filter-label { font-size: 13px; color: var(--text-muted); }
-.filter-tags { display: flex; gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.filter-tags { display: flex; flex-wrap: wrap; gap: 6px; }
+
+/* searchable tag filter */
+.tag-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
+.tag-search { font-size: 13px; padding: 6px 10px; min-width: 140px; }
+.match-control { display: inline-flex; align-items: center; gap: 8px; }
+.match-caption { font-size: 12px; color: var(--text-muted); }
 
 /* buttons */
 .btn { padding: 9px 16px; border-radius: 6px; border: 1px solid transparent;
@@ -89,6 +95,12 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 .tag-form input { flex: 1; font-size: 13px; padding: 6px 9px; }
 
 .notes { width: 100%; min-height: 60px; resize: vertical; font-size: 13px; }
+
+/* wear tracking */
+.wear { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
+.wear-date { font-size: 13px; padding: 5px 8px; }
+.outfit-meta { font-size: 12px; color: var(--text-muted); margin-top: 2px;
+  white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
 
 /* detail dialog */
 dialog { border: none; padding: 0; width: 92vw; max-width: 440px; color: var(--text);

@@ -6,9 +6,10 @@
 const STORAGE_KEY = 'outfitler:palette';
 
 // Representativa färgrutor (ljust läge) per palett – bg, sekundär yta, accent, text.
+// `name` används bara som aria-label (visas inte).
 const PALETTES = [
-  { id: 'muted', name: 'Dämpad', swatches: ['#FAFAF8', '#EEEDE9', '#42566A', '#1C1C1B'] },
-  { id: 'bold', name: 'Järv', swatches: ['#F4F1EA', '#EDE6D8', '#B5451B', '#17110A'] },
+  { id: 'muted', name: 'Dämpad palett', swatches: ['#FAFAF8', '#EEEDE9', '#42566A', '#1C1C1B'] },
+  { id: 'bold', name: 'Järv palett', swatches: ['#F4F1EA', '#EDE6D8', '#B5451B', '#17110A'] },
 ];
 const IDS = PALETTES.map((p) => p.id);
 
@@ -63,7 +64,7 @@ function renderPickers() {
     btn.className = 'palette-current';
     btn.setAttribute('aria-haspopup', 'true');
     btn.setAttribute('aria-expanded', 'false');
-    btn.title = `Palett: ${cur.name}`;
+    btn.setAttribute('aria-label', 'Färgpalett');
     btn.append(swatchRow(cur.swatches));
     const caret = document.createElement('span');
     caret.className = 'palette-caret';
@@ -77,11 +78,8 @@ function renderPickers() {
       const opt = document.createElement('button');
       opt.type = 'button';
       opt.className = 'palette-option' + (p.id === current ? ' selected' : '');
+      opt.setAttribute('aria-label', p.name);
       opt.append(swatchRow(p.swatches));
-      const label = document.createElement('span');
-      label.className = 'palette-name';
-      label.textContent = p.name;
-      opt.append(label);
       opt.addEventListener('click', (e) => {
         e.stopPropagation();
         applyPalette(p.id);

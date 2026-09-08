@@ -254,6 +254,28 @@ CORS-metoderna utökade med `PATCH` i `middleware/security.js`.
 - [ ] Verifiera live: betyg upp till 10, multi-tagg-filter med Alla/Någon,
   rutnät → klick → detalj, palettdropdown, lägga tagg på mobil.
 
+### Andra iterationen (2026-09-08)
+
+- [x] **Palettnamnen borttagna** – dropdownen visar bara färgrutor (namn kvar
+  som `aria-label`).
+- [x] **Fritextsök bland taggar** – sökfält i taggfiltret som prefix-filtrerar
+  chippen i realtid. Delad komponent `createTagFilter` i `shared.js` (används
+  av båda sidorna).
+- [x] **"Använd"-knapp** på outfit *och* plagg. Datumfält förifyllt med idag,
+  redigerbart. `POST /api/{outfits,garments}/:id/wear`. Outfit-wear skapar
+  även en `garment_wears`-rad per ingående plagg. Migration `010_create_wears.sql`.
+- [x] **Användningsstatistik** – `wearCount` + `lastWornOn` på plagg och outfits,
+  visas i detaljvyerna och på outfit-korten.
+- [x] **Sortering** i båda vyerna: senast tillagd / betyg / senast använd /
+  mest använd (`?sort=`). ORDER BY på härledda wear-kolumner.
+- [x] **Tydligare Någon/Alla** – bytt till segmenterad kontroll + förklarande
+  bildtext ("Visar plagg med **minst en** av de 2 valda taggarna" / "med
+  **alla** 2 valda taggarna").
+- [x] Verifierat med jsdom (17 fall: sök, bildtext, sort, wear, palett) +
+  route-test (8 fall: sort, wear-endpoints, datumvalidering) + outfit-regression.
+- [ ] Verifiera live: sök tagg, "använd" outfit → plaggens räknare ökar,
+  sortera på mest/senast använd, palettdropdown utan namn.
+
 ---
 
 ## Senare (ej i denna plan)
@@ -278,4 +300,4 @@ CORS-metoderna utökade med `PATCH` i `middleware/security.js`.
 `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`, `R2_BUCKET`
 
 **Nya migrationer:** `006_create_garments.sql`, `007_create_outfits.sql`,
-`008_create_tags.sql`, `009_widen_rating_to_10.sql`
+`008_create_tags.sql`, `009_widen_rating_to_10.sql`, `010_create_wears.sql`

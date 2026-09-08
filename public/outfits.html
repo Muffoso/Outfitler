@@ -51,18 +51,17 @@
       <div class="toolbar-row">
         <button type="button" id="newBtn" class="btn btn-primary">+ Ny outfit</button>
         <span class="spacer"></span>
+        <select id="sortBy" aria-label="Sortera">
+          <option value="created">Senast tillagd</option>
+          <option value="rating">Betyg</option>
+          <option value="last_worn">Senast använd</option>
+          <option value="most_worn">Mest använd</option>
+        </select>
         <select id="filterRating" aria-label="Filtrera på betyg">
           <option value="">Alla betyg</option>
         </select>
       </div>
-      <div class="toolbar-row" id="tagFilterRow" hidden>
-        <span class="filter-label">Taggar:</span>
-        <div class="filter-tags" id="filterTags"></div>
-        <span class="segmented" id="matchToggle" hidden>
-          <button type="button" data-match="any" class="on">Någon</button>
-          <button type="button" data-match="all">Alla</button>
-        </span>
-      </div>
+      <div class="toolbar-row" id="tagFilter"></div>
     </div>
 
     <div id="grid" class="grid"></div>

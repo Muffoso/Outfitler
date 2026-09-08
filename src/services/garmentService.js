@@ -6,6 +6,18 @@ const withTransaction = require('../db/withTransaction');
 const tagService = require('./tagService');
 const imageStore = require('./imageStore');
 
+// garments.* plus derived wear stats.
+const GARMENT_SELECT = `garments.*,
+  (SELECT count(*)::int FROM garment_wears w WHERE w.garment_id = garments.id) AS wear_count,
+  (SELECT to_char(max(w.worn_on), 'YYYY-MM-DD') FROM garment_wears w WHERE w.garment_id = garments.id) AS last_worn_on`;
+
+const ORDER = {
+  rating: 'garments.rating DESC NULLS LAST, garments.created_at DESC',
+  most_worn: 'wear_count DESC, garments.created_at DESC',
+  last_worn: 'last_worn_on DESC NULLS LAST, garments.created_at DESC',
+  created: 'garments.created_at DESC',
+};
+
 const buildImage = async (row) => {
   if (!row.image_key_prefix) return null;
   const dims = row.image_variants || {};
@@ -30,6 +42,8 @@ const serialize = async (row, tags) => ({
   archived: row.archived,
   image: await buildImage(row),
   tags: tags || [],
+  wearCount: row.wear_count ?? 0,
+  lastWornOn: row.last_worn_on || null,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -39,17 +53,22 @@ const hydrate = async (db, rows) => {
   return Promise.all(rows.map((r) => serialize(r, tagMap.get(r.id))));
 };
 
+const selectById = async (db, id) => {
+  const { rows } = await db.query(`SELECT ${GARMENT_SELECT} FROM garments WHERE garments.id = $1`, [id]);
+  return rows[0] || null;
+};
+
 const list = async (pool, userId, filters = {}) => {
-  const where = ['user_id = $1'];
+  const where = ['garments.user_id = $1'];
   const params = [userId];
 
   const archived = filters.archived || 'false';
-  if (archived === 'true') where.push('archived = true');
-  else if (archived !== 'all') where.push('archived = false');
+  if (archived === 'true') where.push('garments.archived = true');
+  else if (archived !== 'all') where.push('garments.archived = false');
 
   if (filters.rating) {
     params.push(filters.rating);
-    where.push(`rating = $${params.length}`);
+    where.push(`garments.rating = $${params.length}`);
   }
 
   const tagNames = (filters.tag || []).map((t) => t.toLowerCase());
@@ -66,8 +85,9 @@ const list = async (pool, userId, filters = {}) => {
     }
   }
 
+  const orderBy = ORDER[filters.sort] || ORDER.created;
   const { rows } = await pool.query(
-    `SELECT * FROM garments WHERE ${where.join(' AND ')} ORDER BY created_at DESC`,
+    `SELECT ${GARMENT_SELECT} FROM garments WHERE ${where.join(' AND ')} ORDER BY ${orderBy}`,
     params
   );
   return hydrate(pool, rows);
@@ -76,7 +96,7 @@ const list = async (pool, userId, filters = {}) => {
 const listByIds = async (pool, userId, ids) => {
   if (!ids || ids.length === 0) return [];
   const { rows } = await pool.query(
-    'SELECT * FROM garments WHERE id = ANY($1::uuid[]) AND user_id = $2',
+    `SELECT ${GARMENT_SELECT} FROM garments WHERE garments.id = ANY($1::uuid[]) AND garments.user_id = $2`,
     [ids, userId]
   );
   const serialized = await hydrate(pool, rows);
@@ -94,23 +114,26 @@ const getRow = async (pool, userId, id) => {
 };
 
 const getById = async (pool, userId, id) => {
-  const row = await getRow(pool, userId, id);
-  if (!row) return null;
-  return (await hydrate(pool, [row]))[0];
+  const { rows } = await pool.query(
+    `SELECT ${GARMENT_SELECT} FROM garments WHERE garments.id = $1 AND garments.user_id = $2`,
+    [id, userId]
+  );
+  if (rows.length === 0) return null;
+  return (await hydrate(pool, rows))[0];
 };
 
 const create = async (pool, userId, data) =>
   withTransaction(pool, async (client) => {
     const { rows } = await client.query(
-      'INSERT INTO garments (user_id, rating, notes) VALUES ($1, $2, $3) RETURNING *',
+      'INSERT INTO garments (user_id, rating, notes) VALUES ($1, $2, $3) RETURNING id',
       [userId, data.rating ?? null, data.notes ?? null]
     );
-    const garment = rows[0];
+    const id = rows[0].id;
     if (data.tags !== undefined) {
       const tagIds = await tagService.resolveTagIds(client, userId, data.tags);
-      await tagService.replaceLinks(client, 'garment', garment.id, tagIds);
+      await tagService.replaceLinks(client, 'garment', id, tagIds);
     }
-    return (await hydrate(client, [garment]))[0];
+    return (await hydrate(client, [await selectById(client, id)]))[0];
   });
 
 const update = async (pool, userId, id, data) =>
@@ -143,36 +166,44 @@ const update = async (pool, userId, id, data) =>
       await tagService.replaceLinks(client, 'garment', id, tagIds);
     }
 
-    const { rows } = await client.query('SELECT * FROM garments WHERE id = $1', [id]);
-    return (await hydrate(client, rows))[0];
+    return (await hydrate(client, [await selectById(client, id)]))[0];
   });
 
-// Point the garment at a freshly uploaded image. `img` carries keyPrefix,
-// variants ({thumb:{w,h},...}), width, height, bytes, hash.
 const setImage = async (pool, userId, id, img) => {
-  const { rows } = await pool.query(
+  const { rowCount } = await pool.query(
     `UPDATE garments SET
        image_key_prefix = $1, image_variants = $2, image_width = $3,
        image_height = $4, image_bytes = $5, image_hash = $6,
        image_updated_at = NOW(), updated_at = NOW()
-     WHERE id = $7 AND user_id = $8 RETURNING *`,
+     WHERE id = $7 AND user_id = $8`,
     [img.keyPrefix, JSON.stringify(img.variants), img.width, img.height, img.bytes, img.hash, id, userId]
   );
-  if (rows.length === 0) return null;
-  return (await hydrate(pool, rows))[0];
+  if (rowCount === 0) return null;
+  return (await hydrate(pool, [await selectById(pool, id)]))[0];
 };
 
 const clearImage = async (pool, userId, id) => {
-  const { rows } = await pool.query(
+  const { rowCount } = await pool.query(
     `UPDATE garments SET
        image_key_prefix = NULL, image_variants = NULL, image_width = NULL,
        image_height = NULL, image_bytes = NULL, image_hash = NULL,
        image_updated_at = NULL, updated_at = NOW()
-     WHERE id = $1 AND user_id = $2 RETURNING *`,
+     WHERE id = $1 AND user_id = $2`,
     [id, userId]
   );
-  if (rows.length === 0) return null;
-  return (await hydrate(pool, rows))[0];
+  if (rowCount === 0) return null;
+  return (await hydrate(pool, [await selectById(pool, id)]))[0];
+};
+
+// Record that the garment was worn on `wornOn` (YYYY-MM-DD).
+const addWear = async (pool, userId, id, wornOn) => {
+  const { rowCount } = await pool.query(
+    `INSERT INTO garment_wears (garment_id, user_id, worn_on)
+     SELECT id, $2, $3 FROM garments WHERE id = $1 AND user_id = $2`,
+    [id, userId, wornOn]
+  );
+  if (rowCount === 0) return null;
+  return getById(pool, userId, id);
 };
 
 const remove = async (pool, userId, id) => {
@@ -187,5 +218,5 @@ const remove = async (pool, userId, id) => {
 };
 
 module.exports = {
-  list, listByIds, getRow, getById, create, update, setImage, clearImage, remove,
+  list, listByIds, getRow, getById, create, update, setImage, clearImage, addWear, remove,
 };

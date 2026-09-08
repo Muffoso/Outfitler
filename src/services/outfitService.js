@@ -5,6 +5,17 @@ const withTransaction = require('../db/withTransaction');
 const tagService = require('./tagService');
 const garmentService = require('./garmentService');
 
+const OUTFIT_SELECT = `outfits.*,
+  (SELECT count(*)::int FROM outfit_wears w WHERE w.outfit_id = outfits.id) AS wear_count,
+  (SELECT to_char(max(w.worn_on), 'YYYY-MM-DD') FROM outfit_wears w WHERE w.outfit_id = outfits.id) AS last_worn_on`;
+
+const ORDER = {
+  rating: 'outfits.rating DESC NULLS LAST, outfits.created_at DESC',
+  most_worn: 'wear_count DESC, outfits.created_at DESC',
+  last_worn: 'last_worn_on DESC NULLS LAST, outfits.created_at DESC',
+  created: 'outfits.created_at DESC',
+};
+
 const serialize = (row, tags, garmentIds) => ({
   id: row.id,
   name: row.name,
@@ -12,6 +23,8 @@ const serialize = (row, tags, garmentIds) => ({
   notes: row.notes,
   garmentIds: garmentIds || [],
   tags: tags || [],
+  wearCount: row.wear_count ?? 0,
+  lastWornOn: row.last_worn_on || null,
   createdAt: row.created_at,
   updatedAt: row.updated_at,
 });
@@ -38,6 +51,11 @@ const withMeta = async (db, rows) => {
     garmentIdsByOutfit(db, ids),
   ]);
   return rows.map((r) => serialize(r, tagMap.get(r.id), garmentMap.get(r.id)));
+};
+
+const selectById = async (db, id) => {
+  const { rows } = await db.query(`SELECT ${OUTFIT_SELECT} FROM outfits WHERE outfits.id = $1`, [id]);
+  return rows[0] || null;
 };
 
 // Throws GARMENT_NOT_FOUND unless every id is a garment owned by the user.
@@ -69,12 +87,12 @@ const replaceGarments = async (db, outfitId, garmentIds) => {
 };
 
 const list = async (pool, userId, filters = {}) => {
-  const where = ['user_id = $1'];
+  const where = ['outfits.user_id = $1'];
   const params = [userId];
 
   if (filters.rating) {
     params.push(filters.rating);
-    where.push(`rating = $${params.length}`);
+    where.push(`outfits.rating = $${params.length}`);
   }
 
   const tagNames = (filters.tag || []).map((t) => t.toLowerCase());
@@ -91,8 +109,9 @@ const list = async (pool, userId, filters = {}) => {
     }
   }
 
+  const orderBy = ORDER[filters.sort] || ORDER.created;
   const { rows } = await pool.query(
-    `SELECT * FROM outfits WHERE ${where.join(' AND ')} ORDER BY created_at DESC`,
+    `SELECT ${OUTFIT_SELECT} FROM outfits WHERE ${where.join(' AND ')} ORDER BY ${orderBy}`,
     params
   );
   return withMeta(pool, rows);
@@ -100,7 +119,7 @@ const list = async (pool, userId, filters = {}) => {
 
 const getById = async (pool, userId, id) => {
   const { rows } = await pool.query(
-    'SELECT * FROM outfits WHERE id = $1 AND user_id = $2',
+    `SELECT ${OUTFIT_SELECT} FROM outfits WHERE outfits.id = $1 AND outfits.user_id = $2`,
     [id, userId]
   );
   if (rows.length === 0) return null;
@@ -113,16 +132,16 @@ const create = async (pool, userId, data) =>
   withTransaction(pool, async (client) => {
     await assertGarmentsOwned(client, userId, data.garmentIds);
     const { rows } = await client.query(
-      'INSERT INTO outfits (user_id, name, rating, notes) VALUES ($1, $2, $3, $4) RETURNING *',
+      'INSERT INTO outfits (user_id, name, rating, notes) VALUES ($1, $2, $3, $4) RETURNING id',
       [userId, data.name, data.rating ?? null, data.notes ?? null]
     );
-    const outfit = rows[0];
-    await replaceGarments(client, outfit.id, data.garmentIds || []);
+    const id = rows[0].id;
+    await replaceGarments(client, id, data.garmentIds || []);
     if (data.tags !== undefined) {
       const tagIds = await tagService.resolveTagIds(client, userId, data.tags);
-      await tagService.replaceLinks(client, 'outfit', outfit.id, tagIds);
+      await tagService.replaceLinks(client, 'outfit', id, tagIds);
     }
-    return (await withMeta(client, [outfit]))[0];
+    return (await withMeta(client, [await selectById(client, id)]))[0];
   });
 
 const update = async (pool, userId, id, data) =>
@@ -159,8 +178,32 @@ const update = async (pool, userId, id, data) =>
       await tagService.replaceLinks(client, 'outfit', id, tagIds);
     }
 
-    const { rows } = await client.query('SELECT * FROM outfits WHERE id = $1', [id]);
-    return (await withMeta(client, rows))[0];
+    return (await withMeta(client, [await selectById(client, id)]))[0];
+  });
+
+// Record that the outfit was worn on `wornOn` (YYYY-MM-DD): one outfit_wears row
+// plus one garment_wears row per garment currently in the outfit.
+const recordWear = async (pool, userId, id, wornOn) =>
+  withTransaction(pool, async (client) => {
+    const owned = await client.query(
+      'SELECT id FROM outfits WHERE id = $1 AND user_id = $2',
+      [id, userId]
+    );
+    if (owned.rows.length === 0) return null;
+
+    await client.query(
+      'INSERT INTO outfit_wears (outfit_id, user_id, worn_on) VALUES ($1, $2, $3)',
+      [id, userId, wornOn]
+    );
+    await client.query(
+      `INSERT INTO garment_wears (garment_id, user_id, worn_on, outfit_id)
+       SELECT og.garment_id, $2, $3, $1 FROM outfit_garments og WHERE og.outfit_id = $1`,
+      [id, userId, wornOn]
+    );
+
+    const outfit = (await withMeta(client, [await selectById(client, id)]))[0];
+    outfit.garments = await garmentService.listByIds(client, userId, outfit.garmentIds);
+    return outfit;
   });
 
 const remove = async (pool, userId, id) => {
@@ -171,4 +214,4 @@ const remove = async (pool, userId, id) => {
   return rowCount > 0;
 };
 
-module.exports = { list, getById, create, update, remove };
+module.exports = { list, getById, create, update, recordWear, remove };

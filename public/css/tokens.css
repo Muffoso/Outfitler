@@ -179,4 +179,3 @@ body {
 }
 .palette-option:hover { background: var(--surface-2); }
 .palette-option.selected { background: var(--accent-subtle); }
-.palette-name { font-size: 14px; }

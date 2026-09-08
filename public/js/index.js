@@ -1,27 +1,23 @@
 import { initAuth, logout } from './auth.js';
-import { api, jsonHeaders, starRow, tagChips, tagAddForm, spacer } from './shared.js';
+import {
+  api, jsonHeaders, starRow, tagChips, tagAddForm, spacer, wearSection, createTagFilter,
+} from './shared.js';
 
 await initAuth();
 
 const grid = document.getElementById('grid');
 const empty = document.getElementById('empty');
 const detail = document.getElementById('detail');
+const sortBy = document.getElementById('sortBy');
 const filterRating = document.getElementById('filterRating');
 const filterArchived = document.getElementById('filterArchived');
-const tagFilterRow = document.getElementById('tagFilterRow');
-const filterTagsBox = document.getElementById('filterTags');
-const matchToggle = document.getElementById('matchToggle');
 
 const MAX_RATING = 10;
 const ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
 const MAX_UPLOAD = 20 * 1024 * 1024;
 
-const state = {
-  garments: [],
-  tags: [],
-  filterTags: new Set(),
-  match: 'any',
-};
+const state = { garments: [], tags: [] };
+const tagFilter = createTagFilter(document.getElementById('tagFilter'), 'plagg', loadGarments);
 
 for (let n = MAX_RATING; n >= 1; n--) {
   const opt = document.createElement('option');
@@ -32,13 +28,9 @@ for (let n = MAX_RATING; n >= 1; n--) {
 
 document.getElementById('logoutBtn').addEventListener('click', () => logout());
 document.getElementById('newBtn').addEventListener('click', createGarment);
+sortBy.addEventListener('change', loadGarments);
 filterRating.addEventListener('change', loadGarments);
 filterArchived.addEventListener('change', loadGarments);
-matchToggle.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
-  state.match = b.dataset.match;
-  matchToggle.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
-  loadGarments();
-}));
 detail.addEventListener('click', (e) => { if (e.target === detail) detail.close(); });
 
 async function loadTags() {
@@ -48,34 +40,15 @@ async function loadTags() {
   } catch {
     /* not critical */
   }
-  renderTagFilter();
-}
-
-function renderTagFilter() {
-  const names = new Set(state.tags.map((t) => t.name));
-  for (const t of [...state.filterTags]) if (!names.has(t)) state.filterTags.delete(t);
-
-  filterTagsBox.replaceChildren(...state.tags.map((t) => {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'chip-toggle' + (state.filterTags.has(t.name) ? ' on' : '');
-    chip.textContent = `${t.name} (${t.garmentCount})`;
-    chip.addEventListener('click', () => {
-      state.filterTags.has(t.name) ? state.filterTags.delete(t.name) : state.filterTags.add(t.name);
-      renderTagFilter();
-      loadGarments();
-    });
-    return chip;
-  }));
-
-  tagFilterRow.hidden = state.tags.length === 0;
-  matchToggle.hidden = state.filterTags.size < 2;
+  tagFilter.setTags(state.tags.map((t) => ({ name: t.name, count: t.garmentCount })));
 }
 
 async function loadGarments() {
   const params = new URLSearchParams();
-  for (const t of state.filterTags) params.append('tag', t);
-  if (state.filterTags.size >= 2) params.set('match', state.match);
+  const { tags, match } = tagFilter.query();
+  for (const t of tags) params.append('tag', t);
+  if (match) params.set('match', match);
+  if (sortBy.value) params.set('sort', sortBy.value);
   if (filterRating.value) params.set('rating', filterRating.value);
   params.set('archived', filterArchived.checked ? 'all' : 'false');
   try {
@@ -137,6 +110,14 @@ async function createGarment() {
 async function patchGarment(id, patch) {
   const { garment } = await api('/api/garments/' + id, {
     method: 'PATCH', headers: jsonHeaders(), body: JSON.stringify(patch),
+  });
+  replaceInState(garment);
+  return garment;
+}
+
+async function recordWear(id, date) {
+  const { garment } = await api('/api/garments/' + id + '/wear', {
+    method: 'POST', headers: jsonHeaders(), body: JSON.stringify({ date }),
   });
   replaceInState(garment);
   return garment;
@@ -227,9 +208,10 @@ function renderDetail() {
   body.append(starRow(g.rating, MAX_RATING, (value) =>
     mutateDetail(() => patchGarment(g.id, { rating: value }))));
 
+  body.append(wearSection(g, (date) => mutateDetail(() => recordWear(g.id, date))));
+
   body.append(tagChips(g.tags, (tag) =>
     mutateDetail(() => patchGarment(g.id, { tags: g.tags.filter((t) => t !== tag) }))));
-
   body.append(tagAddForm(g.tags, (name) =>
     mutateDetail(() => patchGarment(g.id, { tags: [...g.tags, name] }))));
 

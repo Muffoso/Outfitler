@@ -43,6 +43,11 @@ const listQuerySchema = z.object({
     .transform((v) => (v === undefined ? undefined : (Array.isArray(v) ? v : [v]))),
   match: z.enum(['all', 'any']).optional(),
   rating: z.coerce.number().int().min(1).max(10).optional(),
+  sort: z.enum(['created', 'rating', 'last_worn', 'most_worn']).optional(),
+});
+
+const wearSchema = z.object({
+  date: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).optional(),
 });
 
 const handleGarmentError = (res, err, fallback) => {
@@ -101,6 +106,18 @@ router.delete('/:id', async (req, res) => {
   } catch (err) {
     console.error('Delete outfit error:', err);
     res.status(500).json({ error: 'Failed to delete outfit' });
+  }
+});
+
+router.post('/:id/wear', validateBody(wearSchema), async (req, res) => {
+  try {
+    const date = req.validatedData.date || new Date().toISOString().slice(0, 10);
+    const outfit = await outfitService.recordWear(pool, req.user.id, req.params.id, date);
+    if (!outfit) return res.status(404).json({ error: 'Outfit not found' });
+    res.json({ outfit });
+  } catch (err) {
+    console.error('Record outfit wear error:', err);
+    res.status(500).json({ error: 'Failed to record wear' });
   }
 });
 

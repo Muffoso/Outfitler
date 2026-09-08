@@ -1,25 +1,20 @@
 import { initAuth, logout } from './auth.js';
-import { api, jsonHeaders, starRow, tagChips, tagAddForm, spacer } from './shared.js';
+import {
+  api, jsonHeaders, starRow, tagChips, tagAddForm, spacer, wearSection, createTagFilter,
+} from './shared.js';
 
 await initAuth();
 
 const grid = document.getElementById('grid');
 const empty = document.getElementById('empty');
 const detail = document.getElementById('detail');
+const sortBy = document.getElementById('sortBy');
 const filterRating = document.getElementById('filterRating');
-const tagFilterRow = document.getElementById('tagFilterRow');
-const filterTagsBox = document.getElementById('filterTags');
-const matchToggle = document.getElementById('matchToggle');
 
 const MAX_RATING = 10;
 
-const state = {
-  outfits: [],
-  garmentsById: new Map(),
-  tags: [],
-  filterTags: new Set(),
-  match: 'any',
-};
+const state = { outfits: [], garmentsById: new Map(), tags: [] };
+const tagFilter = createTagFilter(document.getElementById('tagFilter'), 'outfits', loadOutfits);
 
 for (let n = MAX_RATING; n >= 1; n--) {
   const opt = document.createElement('option');
@@ -30,12 +25,8 @@ for (let n = MAX_RATING; n >= 1; n--) {
 
 document.getElementById('logoutBtn').addEventListener('click', () => logout());
 document.getElementById('newBtn').addEventListener('click', createOutfit);
+sortBy.addEventListener('change', loadOutfits);
 filterRating.addEventListener('change', loadOutfits);
-matchToggle.querySelectorAll('button').forEach((b) => b.addEventListener('click', () => {
-  state.match = b.dataset.match;
-  matchToggle.querySelectorAll('button').forEach((x) => x.classList.toggle('on', x === b));
-  loadOutfits();
-}));
 detail.addEventListener('click', (e) => { if (e.target === detail) detail.close(); });
 
 async function loadGarments() {
@@ -54,34 +45,15 @@ async function loadTags() {
   } catch {
     /* not critical */
   }
-  renderTagFilter();
-}
-
-function renderTagFilter() {
-  const names = new Set(state.tags.map((t) => t.name));
-  for (const t of [...state.filterTags]) if (!names.has(t)) state.filterTags.delete(t);
-
-  filterTagsBox.replaceChildren(...state.tags.map((t) => {
-    const chip = document.createElement('button');
-    chip.type = 'button';
-    chip.className = 'chip-toggle' + (state.filterTags.has(t.name) ? ' on' : '');
-    chip.textContent = `${t.name} (${t.outfitCount})`;
-    chip.addEventListener('click', () => {
-      state.filterTags.has(t.name) ? state.filterTags.delete(t.name) : state.filterTags.add(t.name);
-      renderTagFilter();
-      loadOutfits();
-    });
-    return chip;
-  }));
-
-  tagFilterRow.hidden = state.tags.length === 0;
-  matchToggle.hidden = state.filterTags.size < 2;
+  tagFilter.setTags(state.tags.map((t) => ({ name: t.name, count: t.outfitCount })));
 }
 
 async function loadOutfits() {
   const params = new URLSearchParams();
-  for (const t of state.filterTags) params.append('tag', t);
-  if (state.filterTags.size >= 2) params.set('match', state.match);
+  const { tags, match } = tagFilter.query();
+  for (const t of tags) params.append('tag', t);
+  if (match) params.set('match', match);
+  if (sortBy.value) params.set('sort', sortBy.value);
   if (filterRating.value) params.set('rating', filterRating.value);
   try {
     const { outfits } = await api('/api/outfits?' + params.toString());
@@ -149,6 +121,13 @@ function tileEl(o) {
   name.className = 'outfit-name';
   name.textContent = o.name;
   tile.append(name);
+
+  const meta = document.createElement('div');
+  meta.className = 'outfit-meta';
+  meta.textContent = o.wearCount
+    ? `Använd ${o.wearCount} ggr · senast ${o.lastWornOn}`
+    : 'Inte använd än';
+  tile.append(meta);
   return tile;
 }
 
@@ -177,9 +156,23 @@ async function patchOutfit(id, patch) {
   const { outfit } = await api('/api/outfits/' + id, {
     method: 'PATCH', headers: jsonHeaders(), body: JSON.stringify(patch),
   });
-  const i = state.outfits.findIndex((o) => o.id === id);
-  if (i >= 0) state.outfits[i] = outfit;
+  replaceInState(outfit);
   return outfit;
+}
+
+async function recordWear(id, date) {
+  const { outfit } = await api('/api/outfits/' + id + '/wear', {
+    method: 'POST', headers: jsonHeaders(), body: JSON.stringify({ date }),
+  });
+  replaceInState(outfit);
+  // wearing an outfit bumps its garments' counts too
+  await loadGarments();
+  return outfit;
+}
+
+function replaceInState(outfit) {
+  const i = state.outfits.findIndex((o) => o.id === outfit.id);
+  if (i >= 0) state.outfits[i] = outfit;
 }
 
 async function mutateDetail(fn) {
@@ -238,6 +231,8 @@ function renderDetail() {
 
   body.append(starRow(o.rating, MAX_RATING, (value) =>
     mutateDetail(() => patchOutfit(o.id, { rating: value }))));
+
+  body.append(wearSection(o, (date) => mutateDetail(() => recordWear(o.id, date))));
 
   body.append(tagChips(o.tags, (tag) =>
     mutateDetail(() => patchOutfit(o.id, { tags: o.tags.filter((t) => t !== tag) }))));
