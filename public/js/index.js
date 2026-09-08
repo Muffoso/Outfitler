@@ -11,6 +11,20 @@ const filterArchived = document.getElementById('filterArchived');
 
 document.getElementById('logoutBtn').addEventListener('click', () => logout());
 document.getElementById('newBtn').addEventListener('click', createGarment);
+
+// TEMPORÄR (Fas 4b) – tas bort i Fas 5
+document.getElementById('storageTestBtn').addEventListener('click', async (e) => {
+  e.target.disabled = true;
+  try {
+    const result = await api('/api/_storage-selftest');
+    alert((result.ok ? 'Lagring OK\n\n' : 'Lagring MISSLYCKADES\n\n')
+      + result.steps.join('\n') + (result.error ? '\n\n' + result.error : ''));
+  } catch (err) {
+    alert('Lagringstest gick inte att köra: ' + err.message);
+  } finally {
+    e.target.disabled = false;
+  }
+});
 filterRating.addEventListener('change', loadGarments);
 filterArchived.addEventListener('change', loadGarments);
 filterTag.addEventListener('input', debounce(loadGarments, 300));

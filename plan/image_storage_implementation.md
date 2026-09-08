@@ -128,34 +128,27 @@ CORS-metoderna utökade med `PATCH` i `middleware/security.js`.
 
 ### 4a. Förberedelser i Cloudflare (användaren, utanför koden)
 
-- [ ] Cloudflare-konto, aktivera R2 (kräver registrerat kort; $0 under gratisnivån).
-- [ ] Skapa bucket `outfitler-images` – **Location hint: EU**, ingen public
-  access, ingen custom domain.
-- [ ] Skapa R2 API-token scoped till bucketen (Object Read & Write). Notera:
-  **Account ID**, **Access Key ID**, **Secret Access Key**.
-- [ ] Lägg till i Railway (**app-tjänsten**, inte migrate):
-  `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`, `R2_SECRET_ACCESS_KEY`,
-  `R2_BUCKET=outfitler-images`.
-  > `src/config/index.js` hårdfailar på saknade obligatoriska vars – sätt dem
-  > i Railway **före** deployen som lägger till dem i `requiredEnvVars`.
+- [x] Cloudflare-konto, aktivera R2 (kräver registrerat kort; $0 under gratisnivån).
+- [x] Skapa bucket `outfitler-images` – ingen public access, ingen custom domain.
+- [x] Skapa R2 API-token scoped till bucketen (Object Read & Write): **Account
+  ID**, **Access Key ID**, **Secret Access Key**.
+- [x] Railway (**app-tjänsten**): `R2_ACCOUNT_ID`, `R2_ACCESS_KEY_ID`,
+  `R2_SECRET_ACCESS_KEY`, `R2_BUCKET=outfitler-images`.
 
 ### 4b. Kod
 
-- [ ] `npm i @aws-sdk/client-s3 @aws-sdk/s3-request-presigner`
-- [ ] `src/config/index.js`: lägg R2-varsna i `requiredEnvVars` och exponera
-  `config.r2 = { accountId, accessKeyId, secretAccessKey, bucket }`.
-- [ ] `src/services/imageStore/r2.js`:
-  - `S3Client` med `region: 'auto'`,
-    `endpoint: https://<accountId>.r2.cloudflarestorage.com`, credentials.
-  - `put(key, buffer, contentType)` – `PutObjectCommand` med
-    `CacheControl: 'public, max-age=31536000, immutable'`.
-  - `signedUrl(key, ttlSeconds = 604800)` – `getSignedUrl(client, GetObjectCommand, { expiresIn })`.
-  - `del(keys[])` – `DeleteObjectsCommand` (batch).
-  - `delPrefix(prefix)` – `ListObjectsV2` + `del` (för att städa en gammal bild).
-- [ ] `src/services/imageStore/index.js` – exporterar vald driver (nu bara `r2`;
-  seam för `local`/`memory` senare).
-- [ ] Tillfällig verifiering: en engångs-endpoint eller skript som gör
-  `put` + `signedUrl` + hämtar tillbaka + `del`. Ta bort efteråt.
+- [x] `@aws-sdk/client-s3` + `@aws-sdk/s3-request-presigner` i `package.json`.
+- [x] `src/config/index.js`: R2-varsna i `requiredEnvVars`; `config.r2 =
+  { accountId, accessKeyId, secretAccessKey, bucket, endpoint }`.
+- [x] `src/services/imageStore/r2.js`: `S3Client` (`region: 'auto'`, R2-endpoint),
+  `put` (immutable Cache-Control), `signedUrl` (default 7 dygn, kapat till
+  SigV4-max), `del(keys[])`, `delPrefix(prefix)`.
+- [x] `src/services/imageStore/index.js` – exporterar `r2`-drivern (seam för
+  `local` senare).
+- [x] Tillfällig verifiering: `GET /api/_storage-selftest` (`requireAuth`) +
+  knappen "Testa lagring" i garderobsvyn – gör put → signedUrl → fetch → del.
+  **Route, knapp och handler tas bort i början av Fas 5.**
+- [ ] Kör "Testa lagring" på live-deployen → förväntat `ok: true` med alla steg.
 
 ---
 
