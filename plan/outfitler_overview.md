@@ -38,7 +38,9 @@ bearbetning med `sharp` vid uppladdning (EXIF-rotering + strippning, transkoda
 till WebP), varianter `thumb`/`card`/`archive`, uppladdningstak 20 MB samt
 `ImageStore`-abstraktion så leverantören kan bytas.
 
-Öppna beslut som fortfarande ska bekräftas listas sist i det dokumentet.
+Besluten (R2 från start, alltid nedskalad `archive`, signerade URL:er,
+bakgrundsborttagning senare, max 8 bilder/plagg, uppladdning via appen) med
+motivering finns i avsnitt 10 i det dokumentet.
 
 ## 5. UI-vyer
 

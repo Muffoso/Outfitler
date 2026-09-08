@@ -1,8 +1,8 @@
 # Outfitler – Bildhantering
 
 > Detaljplan för avsnitt 4 i [`outfitler_overview.md`](outfitler_overview.md).
-> Status: **förslag** – de öppna besluten sist i dokumentet ska bekräftas
-> innan implementation.
+> Status: **beslutad** – redo för implementation. Besluten och deras
+> motivering finns i avsnitt 10.
 
 ## Sammanfattning
 
@@ -83,9 +83,10 @@ Argument för nedskalad arkivkopia i stället för orörd original:
 - En 4032×3024-telefonbild ger ingen praktisk nytta i en garderobsapp;
   2560 px räcker för fullskärm på retina.
 - Sparar 60–70 % lagring per bild.
-- Behåller ändå tillräckligt för senare bakgrundsborttagning eller ny beskärning.
-- Om vi vill köra AI / bakgrundsborttagning på bästa möjliga kvalitet kan
-  "spara orörd original" göras till ett tillval – men default bör vara nedskalat.
+- Behåller ändå tillräckligt för senare bakgrundsborttagning eller ny beskärning
+  (sådana modeller skalar ändå ner indata).
+
+Beslut: alltid nedskalad `archive`, ingen orörd original sparas (avsnitt 10).
 
 Retina: en tilltagen storlek per kontext (500/1000) duger på 2×-skärmar utan att
 fördubbla antalet filer. `srcset` med 2×-varianter kan läggas till senare.
@@ -96,8 +97,8 @@ fördubbla antalet filer. `srcset` med 2×-varianter kan läggas till senare.
   utan att bjuda in missbruk.
 - **Tillåtna typer:** `image/jpeg`, `image/png`, `image/webp`, `image/heic`,
   `image/heif`. Allt annat avvisas direkt.
-- Rimlig gräns på antal bilder per plagg (förslag: 8) för att hålla vyer och
-  kostnad i schack.
+- Gräns på **8 bilder per plagg** (mjuk gräns, kan höjas) för att hålla vyer och
+  kostnad i schack – se avsnitt 10.
 
 ## 5. URL:er, åtkomst och integritet
 
@@ -196,14 +197,64 @@ Att hålla koll på:
 - Class B (läsningar vid cache-miss) är den rörligaste posten – långa
   `immutable`-headers och CDN framför håller den låg.
 
-## 10. Öppna beslut
+## 10. Beslut
 
-1. **R2 nu**, eller Railway-volym som v1 med adaptern som skydd?
-   (Rekommendation: R2 direkt – ~5 env-vars, och egress-frågan försvinner permanent.)
-2. **Spara orörd original** som tillval, eller alltid nedskalad `archive`?
-3. **Signerade URL:er** (enklare) vs **proxy via appen** (starkare kontroll)?
-4. Behöver v1 **bakgrundsborttagning / vit bakgrund** på plaggbilder, eller är
-   det en senare funktion?
-5. **Max antal bilder per plagg?** (förslag: 8)
-6. **Uppladdningsflöde:** via appen (enkelt, valt ovan) eller presignerad PUT
-   direkt till R2 (skalar bättre, mer komplext)?
+### 1. R2 från start (inte Railway-volym först)
+
+**Beslut:** Cloudflare R2 redan i v1.
+
+Motivering: setupen är ~5 miljövariabler och en bucket. `ImageStore`-adaptern
+(avsnitt 6) gör oss ändå inte inlåsta. Att börja med volym och migrera senare
+är strikt mer jobb – datamigrering plus omskrivna URL:er – och volymens
+ekonomi (betald egress per visning) är sämre från dag ett. Ingen situation
+gör volymen till det bättre valet för den här appen.
+
+### 2. Alltid nedskalad `archive`, ingen orörd original
+
+**Beslut:** varje bild sparas som mest i `archive`-storlek (≤ 2560 px, WebP q82).
+Orörd original sparas inte.
+
+Motivering: ingen planerad funktion behöver full upplösning. 2560 px räcker för
+fullskärm på retina och för framtida bakgrundsborttagning/AI (de modellerna
+skalar ner indata ändå). Sparar 60–70 % lagring. Omprövas bara om en konkret
+funktion kräver mer – då kan "behåll original" bli ett per-bild-tillval.
+
+### 3. Signerade GET-URL:er (inte proxy via appen)
+
+**Beslut:** appen mintar signerade R2-URL:er (TTL ~7 dygn), klienten hämtar
+direkt från CDN.
+
+Motivering: proxy genom Express innebär Railway-egress på varje bildvisning –
+det tar bort hela poängen med R2 – plus extra CPU och latens. Nackdelen med
+signerade URL:er (en länk kan delas vidare under sin TTL) är acceptabel för en
+garderobsapp; nycklarna är ändå ogissningsbara UUID:er. Om skarpare kontroll
+behövs senare kan vi lägga en auth-koll i en Cloudflare Worker framför bucketen.
+
+### 4. Bakgrundsborttagning: senare funktion, inte v1
+
+**Beslut:** ingen automatisk bakgrundsborttagning / vit bakgrund i v1.
+
+Motivering: det är en produktförbättring, inte kärnan i "överblick över
+garderoben". Det drar in ett beroende (tjänst som remove.bg, egen modell, eller
+Cloudflare AI) och en kostnad. `archive`-kopian bevarar möjligheten. Designa
+bildpipelinen (avsnitt 2) så att ett sådant steg kan skjutas in senare utan
+omskrivning.
+
+### 5. Max 8 bilder per plagg
+
+**Beslut:** mjuk gräns på 8 bilder per plagg.
+
+Motivering: räcker för fram-/baksida, detalj, på kroppen och lappbild. Håller
+detaljvyn hanterbar och kostnaden förutsägbar. Kan höjas senare utan
+migrering.
+
+### 6. Uppladdning via appen (inte presignerad PUT) i v1
+
+**Beslut:** `POST /api/images` (multipart, 20 MB-tak), `sharp` bearbetar
+synkront server-side, resultatet läggs i R2.
+
+Motivering: en kodväg, full kontroll över bearbetningen, ingen kö- eller
+event-infrastruktur. Bild-bytes går genom Railway *vid uppladdning* (sällan),
+inte vid visning (ofta) – så egress-påverkan är försumbar. Omprövas om
+uppladdningslatens eller minne blir ett problem; adaptern och endpoint-formen
+gör bytet till presignerad PUT lokalt avgränsat.
