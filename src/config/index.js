@@ -60,6 +60,9 @@ const config = {
     pass: process.env.SMTP_PASS,
     from: process.env.EMAIL_FROM,
   },
+  // Optional: send via Brevo's HTTP API (port 443) instead of SMTP, which many
+  // PaaS hosts block. Set BREVO_API_KEY to enable.
+  brevoApiKey: process.env.BREVO_API_KEY || null,
   appUrl: process.env.APP_URL,
   corsOrigins,
   r2: {
