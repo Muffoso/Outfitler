@@ -7,6 +7,7 @@
 
 const crypto = require('crypto');
 const emailService = require('./emailService');
+const contributionService = require('./contributionService');
 
 const PENDING_CAP = 20; // combined outgoing pending requests + email invites per user
 const UNIQUE_VIOLATION = '23505';
@@ -61,8 +62,9 @@ const acceptRow = async (db, id) => {
   );
 };
 
-// Invite by email. Returns { status: 'accepted' | 'pending' | 'invited' }.
-const invite = async (pool, me, myEmail, rawEmail) => {
+// Invite by email. With connect=false, just email the Outfitler link without
+// asking to become friends. Returns { status, emailSent }.
+const invite = async (pool, me, myEmail, rawEmail, connect = true) => {
   const email = norm(rawEmail);
   if (email === norm(myEmail)) {
     const err = new Error('You cannot add yourself');
@@ -71,6 +73,11 @@ const invite = async (pool, me, myEmail, rawEmail) => {
   }
 
   const target = await findUserByEmail(pool, email);
+
+  if (!connect) {
+    const emailSent = await emailService.sendAppRecommendationEmail(email, myEmail);
+    return { status: 'notified', emailSent };
+  }
 
   if (target) {
     const existing = await getFriendship(pool, me, target.id);
@@ -131,11 +138,15 @@ const invite = async (pool, me, myEmail, rawEmail) => {
 };
 
 const list = async (pool, me) => {
-  const [friends, incoming, outgoing, invites] = await Promise.all([
+  const [friends, incoming, outgoing, invites, activity] = await Promise.all([
     pool.query(
-      `SELECT u.id AS "userId", ${displayNameSql} AS "displayName", u.email, af.created_at AS since
-       FROM accepted_friends af JOIN users u ON u.id = af.friend_id
-       WHERE af.user_id = $1 ORDER BY "displayName"`,
+      `SELECT u.id AS "userId", ${displayNameSql} AS "displayName", u.email,
+              COALESCE(f.responded_at, f.created_at) AS since,
+              (f.requester_id = $1) AS "initiatedByMe"
+       FROM friendships f
+       JOIN users u ON u.id = CASE WHEN f.requester_id = $1 THEN f.addressee_id ELSE f.requester_id END
+       WHERE f.status = 'accepted' AND $1 IN (f.requester_id, f.addressee_id)
+       ORDER BY "displayName"`,
       [me]
     ),
     pool.query(
@@ -157,9 +168,13 @@ const list = async (pool, me) => {
        FROM friend_invites WHERE requester_id = $1 ORDER BY created_at DESC`,
       [me]
     ),
+    contributionService.lastActivityByFriend(pool, me),
   ]);
   return {
-    friends: friends.rows,
+    friends: friends.rows.map((f) => ({
+      ...f,
+      lastContributionAt: activity[f.userId] || null,
+    })),
     incoming: incoming.rows,
     outgoing: outgoing.rows,
     invites: invites.rows,

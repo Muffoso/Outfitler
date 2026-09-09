@@ -2,6 +2,7 @@ const express = require('express');
 const { z } = require('zod');
 const pool = require('../db/pool');
 const friendService = require('../services/friendService');
+const contributionService = require('../services/contributionService');
 const { requireAuth } = require('../middleware/authenticate');
 const { validateBody } = require('../middleware/validate');
 
@@ -18,7 +19,10 @@ const uuid = (name) => (req, res, next, value) => {
 router.param('id', uuid('id'));
 router.param('userId', uuid('userId'));
 
-const inviteSchema = z.object({ email: z.string().email().max(254) });
+const inviteSchema = z.object({
+  email: z.string().email().max(254),
+  connect: z.boolean().optional(),
+});
 
 router.get('/', async (req, res) => {
   try {
@@ -31,7 +35,10 @@ router.get('/', async (req, res) => {
 
 router.post('/', validateBody(inviteSchema), async (req, res) => {
   try {
-    const result = await friendService.invite(pool, req.user.id, req.user.email, req.validatedData.email);
+    const { email, connect } = req.validatedData;
+    const result = await friendService.invite(
+      pool, req.user.id, req.user.email, email, connect !== false
+    );
     const code = result.status === 'accepted' ? 200 : 201;
     res.status(code).json(result);
   } catch (err) {
@@ -40,6 +47,18 @@ router.post('/', validateBody(inviteSchema), async (req, res) => {
     if (err.code === 'CAP') return res.status(400).json({ error: 'För många väntande inbjudningar' });
     console.error('Invite friend error:', err);
     res.status(500).json({ error: 'Kunde inte skicka inbjudan' });
+  }
+});
+
+router.get('/:userId/contributions', async (req, res) => {
+  try {
+    if (!(await friendService.areFriends(pool, req.user.id, req.params.userId))) {
+      return res.status(404).json({ error: 'Not found' });
+    }
+    res.json(await contributionService.from(pool, req.user.id, req.params.userId));
+  } catch (err) {
+    console.error('Friend contributions error:', err);
+    res.status(500).json({ error: 'Failed to load contributions' });
   }
 });
 

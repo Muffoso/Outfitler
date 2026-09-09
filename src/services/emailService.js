@@ -102,6 +102,17 @@ const sendFriendInviteEmail = (email, inviterEmail, token) => deliver('Friend in
   `,
 });
 
+// A plain "you might like Outfitler" — no friend request attached.
+const sendAppRecommendationEmail = (email, inviterEmail) => deliver('App recommendation email', {
+  to: email,
+  subject: 'Ett tips: Outfitler',
+  html: `
+    <h2>${inviterEmail} tror att du skulle gilla Outfitler</h2>
+    <p>Outfitler är en app för att hålla koll på dina kläder och outfits.</p>
+    <p><a href="${config.appUrl}">${config.appUrl}</a></p>
+  `,
+});
+
 // Friend request to an existing user.
 const sendFriendRequestEmail = (email, inviterEmail) => deliver('Friend request email', {
   to: email,
@@ -117,4 +128,5 @@ module.exports = {
   sendPasswordResetEmail,
   sendFriendInviteEmail,
   sendFriendRequestEmail,
+  sendAppRecommendationEmail,
 };

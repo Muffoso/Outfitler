@@ -11,24 +11,26 @@
   <meta name="apple-mobile-web-app-title" content="Outfitler">
   <meta name="apple-mobile-web-app-capable" content="yes">
   <meta name="mobile-web-app-capable" content="yes">
-  <title>Förslag – Outfitler</title>
+  <title>Bidrag från en vän – Outfitler</title>
   <script src="/js/palette-boot.js"></script>
   <script src="/js/no-zoom.js"></script>
   <link rel="stylesheet" href="/css/tokens.css">
   <link rel="stylesheet" href="/css/app.css">
   <style>
-    .sug-section { margin-bottom: 26px; }
+    .contrib-head { font-size: 16px; color: var(--text-strong); margin-bottom: 4px; }
+    .contrib-back { font-size: 13px; color: var(--accent); text-decoration: none; }
+    .sug-section { margin-top: 22px; }
     .sug-section h2 { font-size: 15px; color: var(--text-strong); margin-bottom: 10px; }
     .sug-card { display: flex; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); }
     .sug-card:last-child { border-bottom: none; }
-    .sug-thumb { width: 84px; flex-shrink: 0; aspect-ratio: 3/4; border-radius: var(--radius);
+    .sug-thumb { width: 72px; flex-shrink: 0; aspect-ratio: 3/4; border-radius: var(--radius);
       overflow: hidden; background: var(--surface-2); border: 1px solid var(--border);
       display: grid; gap: 1px; }
     .sug-thumb img { width: 100%; height: 100%; object-fit: cover; }
     .sug-body { flex: 1; min-width: 0; display: flex; flex-direction: column; gap: 6px; }
     .sug-title { color: var(--text-strong); font-size: 14px; }
-    .sug-by { color: var(--text-muted); font-size: 12px; }
-    .sug-tags { display: flex; flex-wrap: wrap; gap: 4px; }
+    .sug-meta { color: var(--text-muted); font-size: 12px; }
+    .sug-note { font-size: 13px; color: var(--text); white-space: pre-wrap; }
     .sug-actions { display: flex; gap: 6px; margin-top: auto; }
     .sug-empty { color: var(--text-muted); font-size: 13px; }
   </style>
@@ -40,8 +42,7 @@
       <nav class="nav">
         <a href="/">Garderob</a>
         <a href="/outfits.html">Outfits</a>
-        <a href="/friends.html">Vänner</a>
-        <a href="/suggestions.html" class="active">Förslag</a>
+        <a href="/friends.html" class="active">Vänner</a>
       </nav>
       <span class="spacer"></span>
       <div data-palette-picker></div>
@@ -50,17 +51,28 @@
   </div>
 
   <div class="wrap">
+    <a class="contrib-back" href="/friends.html">← Vänner</a>
+    <p class="contrib-head" id="head">Bidrag</p>
+
     <div class="sug-section">
       <h2>Föreslagna plagg</h2>
-      <div id="garmentSug"></div>
+      <div id="sugGarments"></div>
     </div>
     <div class="sug-section">
       <h2>Föreslagna outfits</h2>
-      <div id="outfitSug"></div>
+      <div id="sugOutfits"></div>
+    </div>
+    <div class="sug-section">
+      <h2>Betyg</h2>
+      <div id="ratings"></div>
+    </div>
+    <div class="sug-section">
+      <h2>Anteckningar</h2>
+      <div id="notes"></div>
     </div>
   </div>
 
   <script type="module" src="/js/theme.js"></script>
-  <script type="module" src="/js/suggestions.js"></script>
+  <script type="module" src="/js/contributions.js"></script>
 </body>
 </html>

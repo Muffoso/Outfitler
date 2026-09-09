@@ -19,6 +19,8 @@
   <style>
     .friends-section { margin-bottom: 26px; }
     .friends-section h2 { font-size: 15px; color: var(--text-strong); margin-bottom: 10px; }
+    .friends-intro { font-size: 13px; color: var(--text); line-height: 1.5; margin-bottom: 22px; }
+    .friends-intro a { color: var(--accent); }
     .friend-row { display: flex; align-items: center; gap: 10px; padding: 10px 0;
       border-bottom: 1px solid var(--border); }
     .friend-row:last-child { border-bottom: none; }
@@ -26,10 +28,13 @@
     .friend-name { color: var(--text-strong); font-size: 14px; }
     .friend-sub { color: var(--text-muted); font-size: 12px;
       white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .friend-sub a { color: var(--accent); text-decoration: none; }
     .friend-actions { display: flex; gap: 6px; flex-shrink: 0; }
     .friend-actions a.btn { text-decoration: none; display: inline-flex; align-items: center; }
     .invite-form { display: flex; gap: 8px; flex-wrap: wrap; }
-    .invite-form input { flex: 1 1 200px; }
+    .invite-form input[type="email"] { flex: 1 1 200px; }
+    .invite-connect { display: flex; align-items: center; gap: 6px; font-size: 13px;
+      color: var(--text-muted); flex-basis: 100%; }
     .friends-empty { color: var(--text-muted); font-size: 13px; }
     .friends-msg { font-size: 13px; margin-top: 8px; }
     .friends-msg.ok { color: var(--success); }
@@ -46,7 +51,6 @@
         <a href="/">Garderob</a>
         <a href="/outfits.html">Outfits</a>
         <a href="/friends.html" class="active">Vänner</a>
-        <a href="/suggestions.html">Förslag</a>
       </nav>
       <span class="spacer"></span>
       <div data-palette-picker></div>
@@ -55,6 +59,14 @@
   </div>
 
   <div class="wrap">
+    <p class="friends-intro">
+      Som vän till någon på Outfitler kan ni besöka varandras garderober. Du kan bläddra
+      bland vännens plagg och outfits, sätta betyg, lägga till taggar, skriva i
+      anteckningsfältet och föreslå nya plagg och outfits. Dina förslag dyker upp hos
+      vännen som just förslag – de väljer själva att lägga till eller strunta i dem.
+      <a href="/friends-info.html">Läs mer</a>
+    </p>
+
     <div class="friends-section">
       <h2>Ditt namn</h2>
       <p class="friends-empty">Visas för dina vänner när de besöker din garderob.</p>
@@ -70,7 +82,11 @@
       <form id="inviteForm" class="invite-form">
         <input type="email" id="inviteEmail" placeholder="vännens mailadress" required
           autocapitalize="none" autocomplete="off">
-        <button type="submit" class="btn btn-primary">Skicka inbjudan</button>
+        <button type="submit" class="btn btn-primary">Skicka</button>
+        <label class="invite-connect">
+          <input type="checkbox" id="inviteConnect" checked>
+          Be om att bli vän direkt (annars skickas bara en länk till Outfitler)
+        </label>
       </form>
       <p id="inviteMsg" class="friends-msg"></p>
     </div>

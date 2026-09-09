@@ -3,6 +3,7 @@ import {
   api, jsonHeaders, starRow, tagChips, tagAddForm, spacer, wearSection,
   createTagFilter, createSortMenu, detailPhoto, uploadImageFile,
   ownerId, isVisiting, scoped, navHref, ratingBadgeText, ratingSummary, markTagUsed,
+  initFriendsNav,
 } from './shared.js';
 
 await initAuth();
@@ -497,3 +498,4 @@ async function createOutfit() {
 }
 
 await refresh();
+if (!VISITING) initFriendsNav();

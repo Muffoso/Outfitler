@@ -1,0 +1,97 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="icon" href="/images/favicon-32-v2.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="/images/favicon-16-v2.png" sizes="16x16" type="image/png">
+  <link rel="apple-touch-icon" href="/images/apple-touch-icon-v2.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#FAFAF8">
+  <meta name="apple-mobile-web-app-title" content="Outfitler">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Om vänner – Outfitler</title>
+  <script src="/js/palette-boot.js"></script>
+  <script src="/js/no-zoom.js"></script>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/app.css">
+  <style>
+    .doc { font-size: 14px; line-height: 1.6; color: var(--text); }
+    .doc h2 { font-size: 16px; color: var(--text-strong); margin: 22px 0 8px; }
+    .doc h2:first-child { margin-top: 0; }
+    .doc ul { margin: 6px 0 6px 20px; }
+    .doc li { margin: 3px 0; }
+    .doc .back { display: inline-block; margin-top: 24px; color: var(--accent); text-decoration: none; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="bar">
+      <h1>Outfitler</h1>
+      <nav class="nav">
+        <a href="/">Garderob</a>
+        <a href="/outfits.html">Outfits</a>
+        <a href="/friends.html" class="active">Vänner</a>
+      </nav>
+      <span class="spacer"></span>
+      <div data-palette-picker></div>
+      <button type="button" id="logoutBtn" class="btn btn-secondary btn-sm">Logga ut</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="doc">
+      <h2>Vad innebär det att bli vän?</h2>
+      <p>
+        Vänskap på Outfitler är ömsesidig och måste bekräftas. Du bjuder in någon via
+        mailadress; de får en förfrågan och väljer själva att acceptera. När den är
+        accepterad kan ni båda besöka varandras garderober.
+      </p>
+
+      <h2>Vad en vän kan se hos dig</h2>
+      <ul>
+        <li>Alla dina plagg och outfits med bilder och taggar.</li>
+        <li>Genomsnittligt betyg och de enskilda betyg som satts, med namn.</li>
+        <li>Anteckningsfältet på plagg och outfits (det är gemensamt).</li>
+        <li>Hur ofta något använts.</li>
+      </ul>
+
+      <h2>Vad en vän kan göra hos dig</h2>
+      <ul>
+        <li><strong>Sätta betyg</strong> på dina plagg och outfits. Alla betyg räknas in i snittet.</li>
+        <li><strong>Lägga till taggar</strong> – de hamnar direkt bland dina taggar, märkta med vem som satte dem.</li>
+        <li><strong>Skriva i anteckningsfältet.</strong></li>
+        <li><strong>Föreslå nya plagg</strong> (med foto) och <strong>nya outfits</strong> byggda av dina plagg.</li>
+      </ul>
+
+      <h2>Förslag är alltid dina att välja</h2>
+      <p>
+        Plagg och outfits som en vän föreslår dyker upp hos dig som förslag. Du väljer att
+        <strong>lägga till</strong> dem i din garderob eller <strong>strunta i</strong> dem.
+        Inget läggs till utan att du säger ja.
+      </p>
+
+      <h2>Vad en vän INTE kan göra</h2>
+      <ul>
+        <li>Ta bort eller arkivera dina plagg och outfits.</li>
+        <li>Byta eller ta bort dina bilder.</li>
+        <li>Ändra dina befintliga outfits.</li>
+        <li>Registrera att du använt något.</li>
+      </ul>
+
+      <h2>Ta bort en vän</h2>
+      <p>
+        Du kan när som helst ta bort en vän. Deras ännu ej tillagda förslag försvinner
+        då. Betyg och taggar de redan bidragit med blir kvar (de är din data nu), men
+        namnet försvinner från dem.
+      </p>
+
+      <a class="back" href="/friends.html">← Tillbaka till Vänner</a>
+    </div>
+  </div>
+
+  <script type="module" src="/js/theme.js"></script>
+  <script type="module" src="/js/friends-info.js"></script>
+</body>
+</html>

@@ -169,6 +169,10 @@ const update = async (pool, scope, id, data) =>
         sets.push(`${field} = $${params.length}`);
       }
     }
+    if ('notes' in data && editable.includes('notes')) {
+      params.push(viewerId);
+      sets.push(`notes_updated_by = $${params.length}`, 'notes_updated_at = NOW()');
+    }
     if (sets.length > 0) {
       sets.push('updated_at = NOW()');
       params.push(id);

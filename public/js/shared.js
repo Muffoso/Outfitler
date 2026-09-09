@@ -253,6 +253,71 @@ export function markTagUsed(name) {
   }
 }
 
+// --- "new friend activity" tracking (per device) ---
+
+const FRIENDS_SEEN_KEY = 'outfitler:friendsSeen';
+
+function readFriendsSeen() {
+  try {
+    const s = JSON.parse(localStorage.getItem(FRIENDS_SEEN_KEY)) || {};
+    return { activitySeenAt: s.activitySeenAt || 0, contribSeen: s.contribSeen || {} };
+  } catch {
+    return { activitySeenAt: 0, contribSeen: {} };
+  }
+}
+
+function writeFriendsSeen(s) {
+  try {
+    localStorage.setItem(FRIENDS_SEEN_KEY, JSON.stringify(s));
+  } catch {
+    /* ignore */
+  }
+}
+
+// Call when the Vänner page has been viewed — clears the request/accept dot.
+export function markFriendActivitySeen() {
+  const s = readFriendsSeen();
+  s.activitySeenAt = Date.now();
+  writeFriendsSeen(s);
+}
+
+// Call when a friend's contributions page has been viewed.
+export function markContributionsSeen(friendId) {
+  const s = readFriendsSeen();
+  s.contribSeen[friendId] = Date.now();
+  writeFriendsSeen(s);
+}
+
+const ts = (x) => (x ? Date.parse(x) || 0 : 0);
+
+// Has this friend contributed something not yet seen?
+export function friendHasNew(friend) {
+  const { contribSeen } = readFriendsSeen();
+  return !!friend.lastContributionAt && ts(friend.lastContributionAt) > (contribSeen[friend.userId] || 0);
+}
+
+// Any unseen request / acceptance / contribution across all friends?
+export function friendsPayloadHasNew(data) {
+  const { activitySeenAt } = readFriendsSeen();
+  const reqNew = (data.incoming || []).some((r) => ts(r.createdAt) > activitySeenAt);
+  const accNew = (data.friends || []).some((f) => f.initiatedByMe && ts(f.since) > activitySeenAt);
+  const contribNew = (data.friends || []).some(friendHasNew);
+  return reqNew || accNew || contribNew;
+}
+
+// Put a "new" dot on the Vänner nav link when there's unseen activity.
+// Fire-and-forget; safe to call on any page with the nav.
+export async function initFriendsNav() {
+  const link = document.querySelector('.nav a[href="/friends.html"]');
+  if (!link) return;
+  try {
+    const data = await api('/api/friends');
+    link.classList.toggle('has-new', friendsPayloadHasNew(data));
+  } catch {
+    /* leave the nav as-is */
+  }
+}
+
 // Searchable tag filter. Row 1: search box + the Någon/Alla switch, both kept
 // within the screen width. Row 2: the tags on one horizontally-scrolling line
 // that never widens past the grid, faded at whichever edge can still scroll.
@@ -339,6 +404,10 @@ export function createTagFilter(host, noun, onChange) {
         selected.add(t.name);
         markTagUsed(t.name);
       }
+      // Clear the search so the full set of tags (with the new selection at the
+      // front) is shown again, as if the box had been emptied manually.
+      search = '';
+      searchInput.value = '';
       renderChips();
       renderCaption();
       onChange();
