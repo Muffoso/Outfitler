@@ -190,7 +190,7 @@ async function load() {
     [button('Ångra', 'btn-secondary', () => act(() =>
       api(`/api/friends/invites/${i.inviteId}`, { method: 'DELETE' })))])));
 
-  markFriendActivitySeen();
+  markFriendActivitySeen(data);
 }
 
 function textSub(text) {

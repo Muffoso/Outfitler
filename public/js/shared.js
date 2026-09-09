@@ -286,21 +286,29 @@ function writeFriendsSeen(s) {
   }
 }
 
-// Call when the Vänner page has been viewed — clears the request/accept dot.
-export function markFriendActivitySeen() {
-  const s = readFriendsSeen();
-  s.activitySeenAt = Date.now();
-  writeFriendsSeen(s);
-}
-
-// Call when a friend's contributions page has been viewed.
-export function markContributionsSeen(friendId) {
-  const s = readFriendsSeen();
-  s.contribSeen[friendId] = Date.now();
-  writeFriendsSeen(s);
-}
-
 const ts = (x) => (x ? Date.parse(x) || 0 : 0);
+
+// Call with the /api/friends payload once the Vänner page has been viewed.
+// Records the newest *server* timestamp seen, so it never depends on the
+// client clock matching the server's.
+export function markFriendActivitySeen(data) {
+  const s = readFriendsSeen();
+  let latest = s.activitySeenAt || 0;
+  for (const r of data.incoming || []) latest = Math.max(latest, ts(r.createdAt));
+  for (const f of data.friends || []) if (f.initiatedByMe) latest = Math.max(latest, ts(f.since));
+  s.activitySeenAt = latest;
+  writeFriendsSeen(s);
+}
+
+// Call with the friend's own lastContributionAt (a server timestamp) once their
+// contributions page has been viewed.
+export function markContributionsSeen(friendId, lastContributionAt) {
+  const seen = ts(lastContributionAt);
+  if (!seen) return;
+  const s = readFriendsSeen();
+  s.contribSeen[friendId] = Math.max(s.contribSeen[friendId] || 0, seen);
+  writeFriendsSeen(s);
+}
 
 // Has this friend contributed something not yet seen?
 export function friendHasNew(friend) {

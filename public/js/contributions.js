@@ -18,7 +18,15 @@ if (!friendId) {
   els.head.textContent = 'Ingen vän vald';
 } else {
   await load();
-  markContributionsSeen(friendId);
+  // Mark seen with the same server timestamp the nav dot compares against,
+  // so a client/server clock difference can't keep the dot lit.
+  try {
+    const { friends } = await api('/api/friends');
+    const f = (friends || []).find((x) => x.userId === friendId);
+    if (f) markContributionsSeen(friendId, f.lastContributionAt);
+  } catch {
+    /* leave it — nav dot stays until a clean load */
+  }
   initFriendsNav();
 }
 
