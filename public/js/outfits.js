@@ -28,7 +28,8 @@ const tagFilter = createTagFilter(tagFilterHost, 'outfits', onFilterChange);
 const sortMenu = createSortMenu(document.getElementById('sortBy'), loadOutfits);
 
 if (VISITING) {
-  newBtn.textContent = '+ Föreslå outfit';
+  newBtn.title = 'Föreslå outfit';
+  newBtn.setAttribute('aria-label', 'Föreslå outfit');
   for (const a of document.querySelectorAll('.nav a')) {
     if (a.getAttribute('href') === '/') a.href = navHref('/');
     if (a.getAttribute('href') === '/outfits.html') a.href = navHref('/outfits.html');

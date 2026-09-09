@@ -4,6 +4,8 @@
 
 * { margin: 0; padding: 0; box-sizing: border-box; }
 body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; color: var(--text); }
+/* the hidden attribute must win over any component's display rule */
+[hidden] { display: none !important; }
 
 /* top bar + nav — full-bleed bar, content aligned to the same 1000px column
    as .wrap so the "Logga ut" button lines up with the grid's right edge */
@@ -57,9 +59,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .grid-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .grid-toolbar > label { margin-right: auto; }
 
-/* toolbar icon buttons (nytt plagg / tagga flera / filtrera) */
-.btn-icon { padding: 6px 10px; display: inline-flex; align-items: center; }
-.btn svg, .icon-btn svg { display: block; }
+/* toolbar icon buttons (nytt plagg / tagga flera / filtrera) — all 36x36 */
+.icon-btn { width: 36px; height: 36px; }
+.icon-btn svg { display: block; }
+.icon-btn.primary { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
+.icon-btn.primary:hover { background: var(--accent-hover); }
 .icon-btn.on, .icon-btn.on:hover { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .icon-btn.has-filter:not(.on) { border-color: var(--accent); color: var(--accent); }
 

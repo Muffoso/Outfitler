@@ -29,7 +29,8 @@ const tagFilter = createTagFilter(tagFilterHost, 'plagg', onFilterChange);
 const sortMenu = createSortMenu(document.getElementById('sortBy'), loadGarments);
 
 if (VISITING) {
-  newBtn.textContent = '+ Föreslå plagg';
+  newBtn.title = 'Föreslå plagg';
+  newBtn.setAttribute('aria-label', 'Föreslå plagg');
   filterArchived.closest('label').hidden = true;
   for (const a of document.querySelectorAll('.nav a')) {
     if (a.getAttribute('href') === '/') a.href = navHref('/');
