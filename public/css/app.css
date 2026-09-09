@@ -8,13 +8,20 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 /* top bar + nav — full-bleed bar, content aligned to the same 1000px column
    as .wrap so the "Logga ut" button lines up with the grid's right edge */
 .topbar { background: var(--surface); border-bottom: 1px solid var(--border); }
-.topbar .bar { display: flex; align-items: center; gap: 12px;
-  max-width: 1000px; margin: 0 auto; padding: 14px 20px; }
+.topbar .bar { display: flex; align-items: center; gap: 10px 12px; flex-wrap: wrap;
+  max-width: 1000px; margin: 0 auto; padding: 12px 20px; }
 .topbar h1 { font-size: 20px; color: var(--text-strong); letter-spacing: .5px; }
 .topbar .spacer { flex: 1; }
-.nav { display: flex; gap: 4px; }
+.nav { display: flex; gap: 4px; min-width: 0; overflow-x: auto; scrollbar-width: none; }
+.nav::-webkit-scrollbar { display: none; }
 .nav a { font-size: 14px; text-decoration: none; color: var(--text-muted);
-  padding: 5px 10px; border-radius: 6px; }
+  padding: 5px 10px; border-radius: 6px; white-space: nowrap; }
+@media (max-width: 560px) {
+  .topbar .bar { padding: 10px 14px; }
+  .topbar h1 { font-size: 17px; }
+  .nav { order: 3; flex-basis: 100%; }
+  .topbar .spacer { display: none; }
+}
 .nav a:hover { background: var(--surface-2); color: var(--text); }
 .nav a.active { background: var(--accent-subtle); color: var(--text-strong); }
 
