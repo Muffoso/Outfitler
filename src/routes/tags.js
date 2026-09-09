@@ -19,7 +19,7 @@ router.param('id', (req, res, next, value) => {
 // POST here — only listing (with usage counts) and deletion.
 router.get('/', async (req, res) => {
   try {
-    const tags = await tagService.listForUser(pool, req.user.id);
+    const tags = await tagService.listForOwner(pool, req.user.id);
     res.json({ tags });
   } catch (err) {
     console.error('List tags error:', err);
