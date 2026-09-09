@@ -91,7 +91,7 @@ router.get('/:id', async (req, res) => {
   }
 });
 
-router.patch('/:id', requireOwner, validateBody(updateSchema), async (req, res) => {
+router.patch('/:id', validateBody(updateSchema), async (req, res) => {
   try {
     const garment = await garmentService.update(pool, req.scope, req.params.id, req.validatedData);
     if (!garment) return res.status(404).json({ error: 'Garment not found' });

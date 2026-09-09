@@ -230,10 +230,34 @@ export function wearSection(item, onRecord) {
   return wrap;
 }
 
-// Searchable tag filter. Layout: a search box, the Någon/Alla switch right
-// beside it, then the tags on a single horizontally-scrolling row, with a
-// plain-language caption below. Renders into `host`. `noun` goes in the caption
-// ("plagg" / "outfits"). onChange() fires on any selection/match change.
+// Per-device record of when a tag was last used in a search, so the most
+// recently relevant tags sort to the front of the filter row.
+const TAG_USAGE_KEY = 'outfitler:tagUsage';
+
+function readTagUsage() {
+  try {
+    return JSON.parse(localStorage.getItem(TAG_USAGE_KEY)) || {};
+  } catch {
+    return {};
+  }
+}
+
+export function markTagUsed(name) {
+  if (!name) return;
+  try {
+    const m = readTagUsage();
+    m[name.toLowerCase()] = Date.now();
+    localStorage.setItem(TAG_USAGE_KEY, JSON.stringify(m));
+  } catch {
+    /* localStorage may be unavailable */
+  }
+}
+
+// Searchable tag filter. Row 1: search box + the Någon/Alla switch, both kept
+// within the screen width. Row 2: the tags on one horizontally-scrolling line
+// that never widens past the grid, faded at whichever edge can still scroll.
+// Ordered by most-recently-used-in-a-search (or newest). Renders into `host`.
+// `noun` goes in the caption. onChange() fires on any selection/match change.
 // query() -> { tags: [...], match? }.
 export function createTagFilter(host, noun, onChange) {
   const selected = new Set();
@@ -243,6 +267,9 @@ export function createTagFilter(host, noun, onChange) {
 
   const row = document.createElement('div');
   row.className = 'tag-filter';
+
+  const top = document.createElement('div');
+  top.className = 'tag-filter-top';
 
   const searchInput = document.createElement('input');
   searchInput.type = 'text';
@@ -258,8 +285,7 @@ export function createTagFilter(host, noun, onChange) {
 
   const seg = document.createElement('span');
   seg.className = 'segmented match-seg';
-  seg.hidden = true;
-  for (const [value, label] of [['any', 'Någon av taggarna'], ['all', 'Alla']]) {
+  for (const [value, label] of [['any', 'Någon'], ['all', 'Alla']]) {
     const b = document.createElement('button');
     b.type = 'button';
     b.dataset.match = value;
@@ -274,15 +300,32 @@ export function createTagFilter(host, noun, onChange) {
     seg.append(b);
   }
 
+  top.append(searchInput, seg);
+
   const chipBox = document.createElement('div');
   chipBox.className = 'filter-tags';
+  chipBox.addEventListener('scroll', updateScrollHints, { passive: true });
+  window.addEventListener('resize', updateScrollHints);
 
   const caption = document.createElement('span');
   caption.className = 'match-caption';
   caption.hidden = true;
 
-  row.append(searchInput, seg, chipBox, caption);
+  row.append(top, chipBox, caption);
   host.append(row);
+
+  function updateScrollHints() {
+    const max = chipBox.scrollWidth - chipBox.clientWidth;
+    chipBox.style.setProperty('--fade-l', chipBox.scrollLeft > 2 ? '22px' : '0px');
+    chipBox.style.setProperty('--fade-r', chipBox.scrollLeft < max - 2 ? '22px' : '0px');
+  }
+
+  function recency(t) {
+    const usage = readTagUsage();
+    const used = usage[t.name.toLowerCase()] || 0;
+    const created = t.createdAt ? Date.parse(t.createdAt) || 0 : 0;
+    return Math.max(used, created);
+  }
 
   function makeChip(t) {
     const chip = document.createElement('button');
@@ -290,8 +333,12 @@ export function createTagFilter(host, noun, onChange) {
     chip.className = 'chip-toggle' + (selected.has(t.name) ? ' on' : '');
     chip.textContent = `${t.name} (${t.count})`;
     chip.addEventListener('click', () => {
-      if (selected.has(t.name)) selected.delete(t.name);
-      else selected.add(t.name);
+      if (selected.has(t.name)) {
+        selected.delete(t.name);
+      } else {
+        selected.add(t.name);
+        markTagUsed(t.name);
+      }
       renderChips();
       renderCaption();
       onChange();
@@ -300,16 +347,14 @@ export function createTagFilter(host, noun, onChange) {
   }
 
   function renderChips() {
-    const matches = allTags.filter((t) => !search || t.name.toLowerCase().startsWith(search));
-    const ordered = [
-      ...allTags.filter((t) => selected.has(t.name)),
-      ...matches.filter((t) => !selected.has(t.name)),
-    ];
-    chipBox.replaceChildren(...ordered.map(makeChip));
+    const matches = allTags
+      .filter((t) => !search || t.name.toLowerCase().startsWith(search))
+      .sort((a, b) => recency(b) - recency(a) || a.name.localeCompare(b.name, 'sv'));
+    chipBox.replaceChildren(...matches.map(makeChip));
+    requestAnimationFrame(updateScrollHints);
   }
 
   function renderCaption() {
-    seg.hidden = selected.size < 2;
     caption.hidden = selected.size < 2;
     if (selected.size < 2) return;
     caption.replaceChildren();

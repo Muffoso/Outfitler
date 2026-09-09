@@ -44,14 +44,23 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .toolbar-row .spacer { flex: 1; }
 .filter-label { font-size: 13px; color: var(--text-muted); }
 
-/* searchable tag filter — search + Någon/Alla, then one scrolling row of tags */
-.tag-filter { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; }
-.tag-search { flex: 0 1 150px; font-size: 13px; padding: 6px 10px; }
+/* searchable tag filter — row 1: search + Någon/Alla (both fit the width);
+   row 2: one scrolling tag line that never widens past the grid and fades at
+   whichever edge can still scroll */
+.tag-filter { display: flex; flex-direction: column; gap: 8px; width: 100%; min-width: 0; }
+.tag-filter-top { display: flex; align-items: center; gap: 8px; width: 100%; min-width: 0; }
+.tag-search { flex: 1 1 auto; min-width: 0; font-size: 13px; padding: 6px 10px; }
 .match-seg { flex: 0 0 auto; }
-.filter-tags { flex: 1 1 200px; min-width: 0; display: flex; flex-wrap: nowrap;
-  gap: 6px; overflow-x: auto; padding-bottom: 2px; }
+.match-seg button { padding: 5px 10px; }
+.filter-tags { display: flex; flex-wrap: nowrap; gap: 6px;
+  width: 100%; max-width: 100%; min-width: 0; overflow-x: auto; padding-bottom: 2px;
+  scrollbar-width: none;
+  --fade-l: 0px; --fade-r: 0px;
+  -webkit-mask-image: linear-gradient(to right, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent);
+  mask-image: linear-gradient(to right, transparent, #000 var(--fade-l), #000 calc(100% - var(--fade-r)), transparent); }
+.filter-tags::-webkit-scrollbar { display: none; }
 .filter-tags .chip-toggle { flex: 0 0 auto; }
-.match-caption { flex-basis: 100%; font-size: 12px; color: var(--text-muted); }
+.match-caption { font-size: 12px; color: var(--text-muted); }
 
 /* icon button + dropdown menu (sort) */
 .icon-btn { display: inline-flex; align-items: center; justify-content: center;

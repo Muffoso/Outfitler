@@ -2,7 +2,7 @@ import { initAuth, logout } from './auth.js';
 import {
   api, jsonHeaders, starRow, tagChips, tagAddForm, spacer, wearSection,
   createTagFilter, createSortMenu, detailPhoto, uploadImageFile,
-  ownerId, isVisiting, scoped, navHref, ratingBadgeText, ratingSummary,
+  ownerId, isVisiting, scoped, navHref, ratingBadgeText, ratingSummary, markTagUsed,
 } from './shared.js';
 
 await initAuth();
@@ -65,7 +65,7 @@ async function loadTags() {
   } catch {
     /* not critical */
   }
-  tagFilter.setTags(state.tags.map((t) => ({ name: t.name, count: t.garmentCount })));
+  tagFilter.setTags(state.tags.map((t) => ({ name: t.name, count: t.garmentCount, createdAt: t.createdAt })));
 }
 
 async function loadGarments() {
@@ -270,26 +270,31 @@ function renderDetail() {
     body.append(wearSection(g, (date) => mutateDetail(() => recordWear(g.id, date))));
   }
 
-  body.append(tagChips(g.tags, (tag) => mutateDetail(() => removeTag(g.id, tag))));
-  body.append(tagAddForm(g.tags, (name) => mutateDetail(() => addTag(g.id, name))));
+  body.append(tagChips(g.tags, (tag) => mutateDetail(async () => {
+    await removeTag(g.id, tag);
+    await loadTags();
+  })));
+  body.append(tagAddForm(g.tags, (name) => mutateDetail(async () => {
+    markTagUsed(name);
+    await addTag(g.id, name);
+    await loadTags();
+  })));
 
-  if (!VISITING) {
-    const notes = document.createElement('textarea');
-    notes.className = 'notes';
-    notes.placeholder = 'Anteckningar…';
-    notes.value = g.notes || '';
-    notes.addEventListener('blur', async () => {
-      const value = notes.value.trim() || null;
-      if (value === (g.notes || null)) return;
-      try {
-        await patchGarment(g.id, { notes: value });
-        renderGrid();
-      } catch (err) {
-        alert('Kunde inte spara anteckning: ' + err.message);
-      }
-    });
-    body.append(notes);
-  }
+  const notes = document.createElement('textarea');
+  notes.className = 'notes';
+  notes.placeholder = 'Anteckningar…';
+  notes.value = g.notes || '';
+  notes.addEventListener('blur', async () => {
+    const value = notes.value.trim() || null;
+    if (value === (g.notes || null)) return;
+    try {
+      await patchGarment(g.id, { notes: value });
+      renderGrid();
+    } catch (err) {
+      alert('Kunde inte spara anteckning: ' + err.message);
+    }
+  });
+  body.append(notes);
 
   const actions = document.createElement('div');
   actions.className = 'detail-actions';

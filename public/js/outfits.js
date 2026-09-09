@@ -2,7 +2,7 @@ import { initAuth, logout } from './auth.js';
 import {
   api, jsonHeaders, starRow, tagChips, tagAddForm, spacer, wearSection,
   createTagFilter, createSortMenu, detailPhoto, uploadImageFile,
-  ownerId, isVisiting, scoped, navHref, ratingBadgeText, ratingSummary,
+  ownerId, isVisiting, scoped, navHref, ratingBadgeText, ratingSummary, markTagUsed,
 } from './shared.js';
 
 await initAuth();
@@ -71,7 +71,7 @@ async function loadTags() {
   } catch {
     /* not critical */
   }
-  tagFilter.setTags(state.tags.map((t) => ({ name: t.name, count: t.outfitCount })));
+  tagFilter.setTags(state.tags.map((t) => ({ name: t.name, count: t.outfitCount, createdAt: t.createdAt })));
 }
 
 async function loadOutfits() {
@@ -348,25 +348,30 @@ function renderDetail() {
     body.append(wearSection(o, (date) => mutateDetail(() => recordWear(o.id, date))));
   }
 
-  body.append(tagChips(o.tags, (tag) => mutateDetail(() => removeTag(o.id, tag))));
-  body.append(tagAddForm(o.tags, (name) => mutateDetail(() => addTag(o.id, name))));
+  body.append(tagChips(o.tags, (tag) => mutateDetail(async () => {
+    await removeTag(o.id, tag);
+    await loadTags();
+  })));
+  body.append(tagAddForm(o.tags, (name) => mutateDetail(async () => {
+    markTagUsed(name);
+    await addTag(o.id, name);
+    await loadTags();
+  })));
 
-  if (!VISITING) {
-    const notes = document.createElement('textarea');
-    notes.className = 'notes';
-    notes.placeholder = 'Anteckningar…';
-    notes.value = o.notes || '';
-    notes.addEventListener('blur', async () => {
-      const value = notes.value.trim() || null;
-      if (value === (o.notes || null)) return;
-      try {
-        await patchOutfit(o.id, { notes: value });
-      } catch (err) {
-        alert(err.message);
-      }
-    });
-    body.append(notes);
-  }
+  const notes = document.createElement('textarea');
+  notes.className = 'notes';
+  notes.placeholder = 'Anteckningar…';
+  notes.value = o.notes || '';
+  notes.addEventListener('blur', async () => {
+    const value = notes.value.trim() || null;
+    if (value === (o.notes || null)) return;
+    try {
+      await patchOutfit(o.id, { notes: value });
+    } catch (err) {
+      alert(err.message);
+    }
+  });
+  body.append(notes);
 
   const gLabel = document.createElement('div');
   gLabel.className = 'section-label';

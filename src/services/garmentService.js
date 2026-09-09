@@ -34,7 +34,7 @@ const serialize = async (row, tags, ratings, isOwner) => ({
   avgRating: row.avg_rating != null ? Number(row.avg_rating) : null,
   ratingCount: row.rating_count ?? 0,
   ratings: ratings || [],
-  notes: isOwner ? row.notes : undefined,
+  notes: row.notes,
   archived: row.archived,
   image: await buildImage(row),
   tags: tags || [],
@@ -157,13 +157,13 @@ const create = async (pool, scope, data) =>
 const update = async (pool, scope, id, data) =>
   withTransaction(pool, async (client) => {
     const { ownerId, viewerId, isOwner } = normalizeScope(scope);
-    if (!isOwner) return null;
-    const owned = await client.query('SELECT id FROM garments WHERE id = $1 AND user_id = $2', [id, ownerId]);
-    if (owned.rows.length === 0) return null;
+    // Owner edits anything; a visiting friend may edit the shared notes field only.
+    if (!(await isVisible(client, { ownerId, viewerId }, id))) return null;
 
+    const editable = isOwner ? ['notes', 'archived'] : ['notes'];
     const sets = [];
     const params = [];
-    for (const field of ['notes', 'archived']) {
+    for (const field of editable) {
       if (field in data) {
         params.push(data[field]);
         sets.push(`${field} = $${params.length}`);
@@ -175,16 +175,16 @@ const update = async (pool, scope, id, data) =>
       await client.query(`UPDATE garments SET ${sets.join(', ')} WHERE id = $${params.length}`, params);
     }
 
-    if ('rating' in data) {
+    if (isOwner && 'rating' in data) {
       await ratingService.setRating(client, { kind: 'garment', itemId: id, viewerId, isOwner }, data.rating);
     }
 
-    if (data.tags !== undefined) {
+    if (isOwner && data.tags !== undefined) {
       const tagIds = await tagService.resolveTagIds(client, ownerId, data.tags || []);
       await tagService.replaceLinks(client, 'garment', id, tagIds, viewerId);
     }
 
-    return (await hydrate(client, [await selectById(client, viewerId, id)], { isOwner: true, withRatings: true }))[0];
+    return (await hydrate(client, [await selectById(client, viewerId, id)], { isOwner, withRatings: true }))[0];
   });
 
 // Set/clear/upsert the viewer's rating of one visible garment. Returns the

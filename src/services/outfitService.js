@@ -35,7 +35,7 @@ const serialize = async (row, tags, garmentIds, ratings, isOwner) => ({
   avgRating: row.avg_rating != null ? Number(row.avg_rating) : null,
   ratingCount: row.rating_count ?? 0,
   ratings: ratings || [],
-  notes: isOwner ? row.notes : undefined,
+  notes: row.notes,
   garmentIds: garmentIds || [],
   tags: tags || [],
   image: await buildImage(row),
@@ -183,19 +183,20 @@ const create = async (pool, scope, data) =>
 const update = async (pool, scope, id, data) =>
   withTransaction(pool, async (client) => {
     const { ownerId, viewerId, isOwner } = normalizeScope(scope);
-    // Owner may edit anything; a visitor may edit only their own not-yet-accepted
-    // suggested outfit.
-    const owned = await client.query(
-      `SELECT id FROM outfits
+    const { rows: found } = await client.query(
+      `SELECT status, suggested_by FROM outfits
        WHERE id = $1 AND user_id = $2
-         AND ($3 = $2 OR (status = 'suggested' AND suggested_by = $3))`,
+         AND (status = 'active' OR suggested_by = $3 OR $3 = $2)`,
       [id, ownerId, viewerId]
     );
-    if (owned.rows.length === 0) return null;
+    if (found.length === 0) return null;
+    const ownSuggestion = !isOwner && found[0].status === 'suggested' && found[0].suggested_by === viewerId;
+    const fullEdit = isOwner || ownSuggestion; // may restructure the outfit
+    // Everyone who can see it may edit the shared notes; name only on full edit.
+    const editable = fullEdit ? ['name', 'notes'] : ['notes'];
 
     const sets = [];
     const params = [];
-    const editable = isOwner ? ['name', 'notes'] : ['name'];
     for (const field of editable) {
       if (field in data) {
         params.push(data[field]);
@@ -208,15 +209,15 @@ const update = async (pool, scope, id, data) =>
       await client.query(`UPDATE outfits SET ${sets.join(', ')} WHERE id = $${params.length}`, params);
     }
 
-    if ('rating' in data) {
+    if (isOwner && 'rating' in data) {
       await ratingService.setRating(client, { kind: 'outfit', itemId: id, viewerId, isOwner }, data.rating);
     }
 
-    if (data.garmentIds !== undefined) {
+    if (fullEdit && data.garmentIds !== undefined) {
       await assertGarmentsUsable(client, { ownerId, viewerId }, data.garmentIds);
       await replaceGarments(client, id, data.garmentIds);
     }
-    if (data.tags !== undefined) {
+    if (isOwner && data.tags !== undefined) {
       const tagIds = await tagService.resolveTagIds(client, ownerId, data.tags || []);
       await tagService.replaceLinks(client, 'outfit', id, tagIds, viewerId);
     }

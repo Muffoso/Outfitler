@@ -148,7 +148,7 @@ const pruneOrphans = async (db, ownerId) => {
 
 const listRows = async (db, ownerId) => {
   const { rows } = await db.query(
-    `SELECT t.id, t.name,
+    `SELECT t.id, t.name, t.created_at,
        (SELECT count(*)::int FROM garment_tags gt WHERE gt.tag_id = t.id) AS garment_count,
        (SELECT count(*)::int FROM outfit_tags ot WHERE ot.tag_id = t.id) AS outfit_count
      FROM tags t
@@ -159,6 +159,7 @@ const listRows = async (db, ownerId) => {
   return rows.map((r) => ({
     id: r.id,
     name: r.name,
+    createdAt: r.created_at,
     garmentCount: r.garment_count,
     outfitCount: r.outfit_count,
   }));
