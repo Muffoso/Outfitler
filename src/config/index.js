@@ -15,10 +15,8 @@ const requiredEnvVars = [
   'GOOGLE_CLIENT_SECRET',
   'GOOGLE_CALLBACK_URL',
   'SESSION_SECRET',
-  'SMTP_HOST',
-  'SMTP_PORT',
-  'SMTP_USER',
-  'SMTP_PASS',
+  // SMTP_HOST/PORT/USER/PASS are optional — only needed if you send email via
+  // SMTP instead of BREVO_API_KEY (see src/services/emailService.js).
   'EMAIL_FROM',
   'APP_URL',
   'CORS_ORIGINS',
