@@ -43,15 +43,24 @@
     <div class="toolbar">
       <div class="toolbar-row">
         <button type="button" id="newBtn" class="btn btn-primary">+ Nytt plagg</button>
-        <button type="button" id="bulkBtn" class="btn btn-secondary btn-sm">Tagga flera</button>
-        <span class="spacer"></span>
-        <div id="sortBy"></div>
-        <select id="filterRating" aria-label="Filtrera på betyg">
-          <option value="">Alla betyg</option>
-        </select>
-        <label class="muted"><input type="checkbox" id="filterArchived"> Visa arkiverade</label>
+        <button type="button" id="bulkBtn" class="icon-btn" title="Tagga flera" aria-label="Tagga flera">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M13 3H6a2 2 0 0 0-2 2v7l8.5 8.5a2 2 0 0 0 2.8 0l5.2-5.2a2 2 0 0 0 0-2.8L13 3Z"/>
+            <circle cx="8" cy="8" r="1.4"/>
+            <path d="M18 6.5v4M16 8.5h4"/>
+          </svg>
+        </button>
+        <button type="button" id="filterBtn" class="icon-btn" title="Filtrera på taggar" aria-label="Filtrera på taggar">
+          <svg width="17" height="17" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="1.7" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M3 5h18l-7 8.2V20l-4 1.5v-8.3L3 5Z"/>
+          </svg>
+        </button>
       </div>
-      <div class="toolbar-row" id="tagFilter"></div>
+      <div class="toolbar-row" id="tagFilter" hidden></div>
+      <div class="grid-toolbar">
+        <label class="muted"><input type="checkbox" id="filterArchived"> Visa arkiverade</label>
+        <div id="sortBy"></div>
+      </div>
     </div>
 
     <div id="grid" class="grid"></div>

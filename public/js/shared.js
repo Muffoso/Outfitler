@@ -157,7 +157,7 @@ export function createTagAdder({ onChoose }) {
   form.className = 'tag-form';
   const input = document.createElement('input');
   input.type = 'text';
-  input.placeholder = 'Lägg till tagg';
+  input.placeholder = 'Lägg till en tagg';
   input.setAttribute('enterkeyhint', 'done');
   input.autocapitalize = 'none';
   input.autocomplete = 'off';
@@ -277,7 +277,7 @@ export function createBulkTagBar({ onSave, onCancel, onArm }) {
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'bulk-tag-input';
-  input.placeholder = 'Skriv eller välj en tagg…';
+  input.placeholder = 'Lägg till en tagg';
   input.autocapitalize = 'none';
   input.autocomplete = 'off';
 
@@ -663,10 +663,11 @@ export function createTagFilter(host, noun, onChange) {
       allTags = tags;
       const names = new Set(tags.map((t) => t.name));
       for (const n of [...selected]) if (!names.has(n)) selected.delete(n);
-      host.hidden = tags.length === 0;
       renderChips();
       renderCaption();
     },
+    hasSelection() { return selected.size > 0; },
+    refresh() { renderChips(); },
     query() {
       return {
         tags: [...selected],

@@ -14,24 +14,18 @@ const VISITING = isVisiting();
 const grid = document.getElementById('grid');
 const empty = document.getElementById('empty');
 const detail = document.getElementById('detail');
-const filterRating = document.getElementById('filterRating');
 const newBtn = document.getElementById('newBtn');
 const bulkBtn = document.getElementById('bulkBtn');
+const filterBtn = document.getElementById('filterBtn');
+const tagFilterHost = document.getElementById('tagFilter');
 
 const MAX_RATING = 10;
 
 const state = { outfits: [], garmentsById: new Map(), tags: [] };
 let bulkMode = false;
 const bulkSelected = new Set();
-const tagFilter = createTagFilter(document.getElementById('tagFilter'), 'outfits', loadOutfits);
+const tagFilter = createTagFilter(tagFilterHost, 'outfits', onFilterChange);
 const sortMenu = createSortMenu(document.getElementById('sortBy'), loadOutfits);
-
-for (let n = MAX_RATING; n >= 1; n--) {
-  const opt = document.createElement('option');
-  opt.value = String(n);
-  opt.textContent = `${n} +`;
-  filterRating.append(opt);
-}
 
 if (VISITING) {
   newBtn.textContent = '+ Föreslå outfit';
@@ -44,8 +38,17 @@ if (VISITING) {
 
 document.getElementById('logoutBtn').addEventListener('click', () => logout());
 newBtn.addEventListener('click', createOutfit);
-filterRating.addEventListener('change', loadOutfits);
+filterBtn.addEventListener('click', () => {
+  tagFilterHost.hidden = !tagFilterHost.hidden;
+  filterBtn.classList.toggle('on', !tagFilterHost.hidden);
+  if (!tagFilterHost.hidden) tagFilter.refresh();
+});
 detail.addEventListener('click', (e) => { if (e.target === detail) detail.close(); });
+
+function onFilterChange() {
+  filterBtn.classList.toggle('has-filter', tagFilter.hasSelection());
+  loadOutfits();
+}
 
 // ---- bulk tagging ----
 
@@ -71,13 +74,14 @@ const bulkBar = createBulkTagBar({
   },
   onCancel: () => exitBulk(),
 });
-document.querySelector('.toolbar').append(bulkBar.el);
+document.querySelector('.grid-toolbar').before(bulkBar.el);
 bulkBtn.addEventListener('click', () => {
+  if (bulkMode) { exitBulk(); return; }
   bulkMode = true;
   bulkSelected.clear();
   bulkBar.open(state.tags.map((t) => t.name));
   bulkBar.setCount(0);
-  bulkBtn.hidden = true;
+  bulkBtn.classList.add('on');
   renderGrid();
 });
 
@@ -85,7 +89,7 @@ function exitBulk() {
   bulkMode = false;
   bulkSelected.clear();
   bulkBar.close();
-  bulkBtn.hidden = false;
+  bulkBtn.classList.remove('on');
   grid.classList.remove('bulk-armed');
   renderGrid();
 }
@@ -127,7 +131,6 @@ async function loadOutfits() {
   for (const t of tags) params.append('tag', t);
   if (match) params.set('match', match);
   params.set('sort', sortMenu.value());
-  if (filterRating.value) params.set('rating', filterRating.value);
   try {
     const { outfits } = await api(scoped('/api/outfits?' + params.toString()));
     state.outfits = outfits;
