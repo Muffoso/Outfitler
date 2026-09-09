@@ -161,17 +161,17 @@ router.post('/:id/wear', requireOwner, validateBody(wearSchema), async (req, res
   }
 });
 
-// Upload or replace an image. Owner always; a visiting friend only for a garment
-// they themselves suggested and that is still pending.
+// A visiting friend may edit the image only on their own pending suggestion.
+const mayEditImage = (req, row) =>
+  req.scope.isOwner || (row.status === 'suggested' && row.suggested_by === req.user.id);
+
+// Upload or replace a garment's single image.
 router.put('/:id/image', receiveImage, async (req, res) => {
   try {
     if (!req.file) return res.status(400).json({ error: 'No image file' });
 
     const row = await garmentService.getRow(pool, req.scope, req.params.id);
-    if (!row) return res.status(404).json({ error: 'Garment not found' });
-    if (!req.scope.isOwner && !(row.status === 'suggested' && row.suggested_by === req.user.id)) {
-      return res.status(404).json({ error: 'Garment not found' });
-    }
+    if (!row || !mayEditImage(req, row)) return res.status(404).json({ error: 'Garment not found' });
 
     let img;
     try {
@@ -197,10 +197,10 @@ router.put('/:id/image', receiveImage, async (req, res) => {
   }
 });
 
-router.delete('/:id/image', requireOwner, async (req, res) => {
+router.delete('/:id/image', async (req, res) => {
   try {
     const row = await garmentService.getRow(pool, req.scope, req.params.id);
-    if (!row) return res.status(404).json({ error: 'Garment not found' });
+    if (!row || !mayEditImage(req, row)) return res.status(404).json({ error: 'Garment not found' });
 
     const garment = await garmentService.clearImage(pool, req.scope, req.params.id);
     if (row.image_key_prefix) {

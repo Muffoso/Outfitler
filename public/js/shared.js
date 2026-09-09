@@ -1,6 +1,6 @@
 // Shared helpers for the wardrobe and outfit pages.
 
-import { authFetch } from './auth.js';
+import { authFetch, authUpload } from './auth.js';
 
 export async function api(url, options) {
   const res = await authFetch(url, options);
@@ -182,18 +182,30 @@ export function detailPhoto(image, onFile) {
   return photo;
 }
 
-// PUT a File to `${base}/image` as multipart/form-data. Toggles the 'busy'
-// class on labelEl. Returns the parsed JSON; throws on error (incl. too large).
+// PUT a File to `${base}/image` as multipart/form-data with a progress bar drawn
+// on labelEl. Returns the parsed JSON; throws on error (incl. too large).
 export async function uploadImageFile(base, file, labelEl) {
   if (file.size > MAX_IMAGE_BYTES) throw new Error('Bilden är för stor (max 20 MB).');
   const form = new FormData();
   form.append('image', file);
+
   labelEl.classList.add('busy');
+  const bar = document.createElement('div');
+  bar.className = 'upload-progress';
+  const fillEl = document.createElement('div');
+  fillEl.className = 'upload-progress-fill';
+  bar.append(fillEl);
+  labelEl.append(bar);
+
   try {
-    return await api(scoped(base + '/image'), { method: 'PUT', body: form });
-  } catch (err) {
+    return await authUpload(scoped(base + '/image'), form, (p) => {
+      fillEl.style.width = Math.max(3, Math.round(p * 100)) + '%';
+      // Past 100% of the bytes the server is still processing (sharp/R2).
+      if (p >= 1) bar.classList.add('processing');
+    });
+  } finally {
+    bar.remove();
     labelEl.classList.remove('busy');
-    throw err;
   }
 }
 
