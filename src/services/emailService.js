@@ -9,7 +9,14 @@ const transporter = nodemailer.createTransport({
     user: config.smtp.user,
     pass: config.smtp.pass,
   },
+  // Fail fast instead of hanging when SMTP is misconfigured / unreachable.
+  connectionTimeout: 10000,
+  greetingTimeout: 10000,
+  socketTimeout: 15000,
 });
+
+// True once we've decided SMTP looks real enough to attempt a send.
+const smtpConfigured = !!config.smtp.host && config.smtp.host !== 'smtp.example.com';
 
 const sendPasswordResetEmail = async (email, resetToken) => {
   const resetLink = `${config.appUrl}/reset-password.html?token=${resetToken}`;
@@ -35,49 +42,44 @@ const sendPasswordResetEmail = async (email, resetToken) => {
   }
 };
 
-// Invite to someone who does not have an account yet.
-const sendFriendInviteEmail = async (email, inviterEmail, token) => {
-  const link = `${config.appUrl}/register.html?invite=${token}`;
-  const htmlContent = `
-    <h2>${inviterEmail} vill bli vän med dig på Outfitler</h2>
-    <p>Outfitler är en app för att hålla koll på dina kläder och outfits. Skapa ett
-       konto så kopplas ni ihop och ni kan besöka varandras garderober.</p>
-    <p><a href="${link}">${link}</a></p>
-    <p>Om du inte vet vad det här är kan du ignorera mejlet.</p>
-  `;
+// Best-effort friend email. Never throws — returns true if it went out.
+const trySend = async (label, message) => {
+  if (!smtpConfigured) {
+    console.warn(`${label} skipped: SMTP not configured (SMTP_HOST=${config.smtp.host})`);
+    return false;
+  }
   try {
-    await transporter.sendMail({
-      from: config.smtp.from,
-      to: email,
-      subject: 'Vänförfrågan på Outfitler',
-      html: htmlContent,
-    });
+    await transporter.sendMail({ from: config.smtp.from, ...message });
+    return true;
   } catch (err) {
-    console.error('Failed to send friend invite email:', err);
-    throw err;
+    console.error(`${label} failed:`, err.message);
+    return false;
   }
 };
 
+// Invite to someone who does not have an account yet.
+const sendFriendInviteEmail = (email, inviterEmail, token) => trySend('Friend invite email', {
+  to: email,
+  subject: 'Vänförfrågan på Outfitler',
+  html: `
+    <h2>${inviterEmail} vill bli vän med dig på Outfitler</h2>
+    <p>Outfitler är en app för att hålla koll på dina kläder och outfits. Skapa ett
+       konto så kopplas ni ihop och ni kan besöka varandras garderober.</p>
+    <p><a href="${config.appUrl}/register.html?invite=${token}">${config.appUrl}/register.html?invite=${token}</a></p>
+    <p>Om du inte vet vad det här är kan du ignorera mejlet.</p>
+  `,
+});
+
 // Friend request to an existing user.
-const sendFriendRequestEmail = async (email, inviterEmail) => {
-  const link = `${config.appUrl}/friends.html`;
-  const htmlContent = `
+const sendFriendRequestEmail = (email, inviterEmail) => trySend('Friend request email', {
+  to: email,
+  subject: 'Vänförfrågan på Outfitler',
+  html: `
     <h2>${inviterEmail} vill bli vän med dig på Outfitler</h2>
     <p>Logga in och svara på förfrågan:</p>
-    <p><a href="${link}">${link}</a></p>
-  `;
-  try {
-    await transporter.sendMail({
-      from: config.smtp.from,
-      to: email,
-      subject: 'Vänförfrågan på Outfitler',
-      html: htmlContent,
-    });
-  } catch (err) {
-    console.error('Failed to send friend request email:', err);
-    throw err;
-  }
-};
+    <p><a href="${config.appUrl}/friends.html">${config.appUrl}/friends.html</a></p>
+  `,
+});
 
 module.exports = {
   sendPasswordResetEmail,

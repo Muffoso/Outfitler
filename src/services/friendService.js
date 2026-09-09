@@ -109,9 +109,8 @@ const invite = async (pool, me, myEmail, rawEmail) => {
       return { status: 'pending' };
     }
 
-    emailService.sendFriendRequestEmail(target.email, myEmail).catch((e) =>
-      console.error('Friend request email failed:', e));
-    return { status: 'pending' };
+    const emailSent = await emailService.sendFriendRequestEmail(target.email, myEmail);
+    return { status: 'pending', emailSent };
   }
 
   // No account yet — store a pending invite keyed on the email.
@@ -127,9 +126,8 @@ const invite = async (pool, me, myEmail, rawEmail) => {
      RETURNING token`,
     [me, email, token]
   );
-  emailService.sendFriendInviteEmail(email, myEmail, rows[0].token).catch((e) =>
-    console.error('Friend invite email failed:', e));
-  return { status: 'invited' };
+  const emailSent = await emailService.sendFriendInviteEmail(email, myEmail, rows[0].token);
+  return { status: 'invited', emailSent };
 };
 
 const list = async (pool, me) => {

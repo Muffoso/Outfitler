@@ -93,10 +93,19 @@ async function invite(e) {
   try {
     const res = await api('/api/friends', { method: 'POST', headers: jsonHeaders(), body: JSON.stringify({ email }) });
     els.inviteEmail.value = '';
-    const text = res.status === 'accepted' ? 'Ni är nu vänner!'
-      : res.status === 'invited' ? 'Inbjudan skickad via mail.'
-      : 'Förfrågan skickad.';
-    msg(els.inviteMsg, text, 'ok');
+    let text;
+    let kind = 'ok';
+    if (res.status === 'accepted') {
+      text = 'Ni är nu vänner!';
+    } else if (res.emailSent === false) {
+      text = res.status === 'invited'
+        ? 'Inbjudan sparad, men mejlet kunde inte skickas. Be din vän skapa ett konto på Outfitler — ni kopplas ihop automatiskt.'
+        : 'Förfrågan sparad, men mejlet kunde inte skickas. Din vän ser den under "Vänner" nästa gång de loggar in.';
+      kind = 'err';
+    } else {
+      text = res.status === 'invited' ? 'Inbjudan skickad via mail.' : 'Förfrågan skickad.';
+    }
+    msg(els.inviteMsg, text, kind);
     await load();
   } catch (err) {
     msg(els.inviteMsg, err.message, 'err');
