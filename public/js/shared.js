@@ -211,6 +211,23 @@ export function spacer() {
   return s;
 }
 
+// Measure the sticky topbar (and visiting banner) so the toolbar/banner CSS can
+// pin themselves right below. Call on load, resize and orientationchange.
+export function updateStickyOffsets() {
+  const topbar = document.querySelector('.topbar');
+  const banner = document.querySelector('.visiting-banner');
+  const th = topbar ? topbar.offsetHeight : 0;
+  const bh = banner && !banner.hidden ? banner.offsetHeight : 0;
+  const root = document.documentElement.style;
+  root.setProperty('--topbar-h', `${th}px`);
+  root.setProperty('--banner-h', `${bh}px`);
+}
+
+if (typeof window !== 'undefined') {
+  window.addEventListener('resize', updateStickyOffsets);
+  window.addEventListener('orientationchange', updateStickyOffsets);
+}
+
 // --- press-and-hold to view an image full-size ---
 
 let peekEl = null;

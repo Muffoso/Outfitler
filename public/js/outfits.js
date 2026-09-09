@@ -3,7 +3,7 @@ import {
   api, jsonHeaders, starRow, tagChips, createTagAdder, spacer, wearSection,
   createTagFilter, createSortMenu, detailPhoto, uploadImageFile,
   ownerId, isVisiting, scoped, navHref, ratingBadgeText, ratingSummary, markTagUsed,
-  initFriendsNav, attachPeek, createBulkTagBar,
+  initFriendsNav, attachPeek, createBulkTagBar, updateStickyOffsets,
 } from './shared.js';
 
 await initAuth();
@@ -115,10 +115,7 @@ async function setupBanner() {
   } catch { /* generic */ }
   banner.querySelector('.vb-text').textContent = `Du är på besök hos ${name}`;
   banner.hidden = false;
-  const syncTop = () =>
-    document.documentElement.style.setProperty('--toolbar-top', `${banner.offsetHeight}px`);
-  syncTop();
-  window.addEventListener('resize', syncTop);
+  updateStickyOffsets();
 }
 
 async function loadGarments() {
@@ -577,5 +574,7 @@ async function createOutfit() {
   }
 }
 
+updateStickyOffsets();
 await refresh();
+updateStickyOffsets();
 if (!VISITING) initFriendsNav();
