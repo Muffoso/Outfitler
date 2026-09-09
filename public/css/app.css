@@ -130,12 +130,19 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
 .muted { color: var(--text-muted); font-size: 13px; }
 
 /* bulk-tag mode */
-.bulk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+.bulk-bar { display: flex; flex-direction: column; gap: 8px;
   margin-bottom: 14px; padding: 10px; background: var(--surface-2);
   border: 1px solid var(--border); border-radius: var(--radius); }
+.bulk-bar-top { display: flex; flex-wrap: wrap; align-items: center; gap: 8px; }
 .bulk-tag-input { flex: 1 1 160px; min-width: 0; font-size: 13px; padding: 6px 10px; }
-.bulk-hint { flex-basis: 100%; font-size: 13px; color: var(--text-strong); }
+.bulk-hint { font-size: 13px; color: var(--text-strong); }
 .bulk-count { font-size: 13px; color: var(--text-muted); }
+
+/* add-tag widget in the detail dialog: field + existing-tag row below */
+.tag-adder { display: flex; flex-direction: column; gap: 6px; }
+
+/* chips need contrast against the tinted bulk bar */
+.bulk-bar .filter-tags .chip-toggle { background: var(--surface); }
 .grid.bulk .tile, .grid.bulk .outfit-tile { cursor: pointer; }
 .grid.bulk .outfit-tile { position: relative; }
 .grid.bulk .tile.bulk-selected, .grid.bulk .outfit-tile.bulk-selected {

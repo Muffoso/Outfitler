@@ -115,9 +115,44 @@ export function tagChips(tags, onRemove) {
   return wrap;
 }
 
-// Add-tag form. Uses <form> submit so the mobile keyboard's Enter/Go works.
-// onAdd(name) fires for a non-empty name that isn't already in `tags`.
-export function tagAddForm(tags, onAdd) {
+// Shared bits for the "add a tag" widgets ------------------------------------
+
+function wireScrollFade(el) {
+  const update = () => {
+    const max = el.scrollWidth - el.clientWidth;
+    el.style.setProperty('--fade-l', el.scrollLeft > 2 ? '22px' : '0px');
+    el.style.setProperty('--fade-r', el.scrollLeft < max - 2 ? '22px' : '0px');
+  };
+  el.addEventListener('scroll', update, { passive: true });
+  window.addEventListener('resize', update);
+  return update;
+}
+
+// Paint a scrolling, edge-faded row of existing-tag chips into `chipBox`.
+function paintTagChips(chipBox, names, { exclude = new Set(), search = '', onPick }) {
+  const usage = readTagUsage();
+  const rec = (n) => usage[n.toLowerCase()] || 0;
+  const list = names
+    .filter((n) => !exclude.has(n.toLowerCase()))
+    .filter((n) => !search || n.toLowerCase().startsWith(search))
+    .sort((a, b) => rec(b) - rec(a) || a.localeCompare(b, 'sv'));
+  chipBox.replaceChildren(...list.map((n) => {
+    const c = document.createElement('button');
+    c.type = 'button';
+    c.className = 'chip-toggle';
+    c.textContent = n;
+    c.addEventListener('click', () => onPick(n));
+    return c;
+  }));
+}
+
+// Add-tag widget: a text field (type a new tag) + a row of the owner's existing
+// tags below it (filtered as you type, click to add). onChoose(name) fires for a
+// typed name or a picked chip; tags already on the item are hidden from the row.
+export function createTagAdder({ onChoose }) {
+  const wrap = document.createElement('div');
+  wrap.className = 'tag-adder';
+
   const form = document.createElement('form');
   form.className = 'tag-form';
   const input = document.createElement('input');
@@ -131,14 +166,43 @@ export function tagAddForm(tags, onAdd) {
   btn.className = 'btn btn-secondary btn-sm';
   btn.textContent = 'Lägg till';
   form.append(input, btn);
-  form.addEventListener('submit', (e) => {
-    e.preventDefault();
-    const name = input.value.trim();
+
+  const chipBox = document.createElement('div');
+  chipBox.className = 'filter-tags';
+  const updateFade = wireScrollFade(chipBox);
+
+  wrap.append(form, chipBox);
+
+  let all = [];
+  let applied = new Set();
+  let filterText = '';
+
+  const render = () => {
+    paintTagChips(chipBox, all, {
+      exclude: applied,
+      search: filterText,
+      onPick: (n) => { markTagUsed(n); choose(n); },
+    });
+    requestAnimationFrame(updateFade);
+  };
+  const choose = (name) => {
+    const n = (name || '').trim();
     input.value = '';
-    if (!name || tags.some((t) => t.toLowerCase() === name.toLowerCase())) return;
-    onAdd(name);
-  });
-  return form;
+    filterText = '';
+    if (n) onChoose(n);
+  };
+
+  input.addEventListener('input', () => { filterText = input.value.trim().toLowerCase(); render(); });
+  form.addEventListener('submit', (e) => { e.preventDefault(); choose(input.value); });
+
+  return {
+    el: wrap,
+    setTags(allNames, appliedNames = []) {
+      all = allNames.slice();
+      applied = new Set(appliedNames.map((s) => s.toLowerCase()));
+      render();
+    },
+  };
 }
 
 export function spacer() {
@@ -207,21 +271,15 @@ export function createBulkTagBar({ onSave, onCancel, onArm }) {
   bar.className = 'bulk-bar';
   bar.hidden = true;
 
+  const top = document.createElement('div');
+  top.className = 'bulk-bar-top';
+
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'bulk-tag-input';
-  input.placeholder = 'Skriv en tagg…';
-  input.setAttribute('list', 'bulkTagList');
+  input.placeholder = 'Skriv eller välj en tagg…';
   input.autocapitalize = 'none';
   input.autocomplete = 'off';
-
-  const datalist = document.createElement('datalist');
-  datalist.id = 'bulkTagList';
-
-  const hint = document.createElement('div');
-  hint.className = 'bulk-hint';
-  hint.textContent = 'Kryssa i de som ska få taggen nedan';
-  hint.hidden = true;
 
   const count = document.createElement('span');
   count.className = 'bulk-count';
@@ -241,25 +299,49 @@ export function createBulkTagBar({ onSave, onCancel, onArm }) {
   cancel.textContent = 'Avbryt';
   cancel.addEventListener('click', onCancel);
 
+  top.append(input, count, save, cancel);
+
+  const hint = document.createElement('div');
+  hint.className = 'bulk-hint';
+  hint.textContent = 'Kryssa i de som ska få taggen nedan';
+  hint.hidden = true;
+
+  const chipBox = document.createElement('div');
+  chipBox.className = 'filter-tags';
+  const updateFade = wireScrollFade(chipBox);
+
+  bar.append(top, hint, chipBox);
+
+  let all = [];
+  let filterText = '';
+
   const setArmed = (armed) => {
     hint.hidden = !armed;
     if (onArm) onArm(armed);
   };
-  input.addEventListener('input', () => setArmed(!!input.value.trim()));
+  const render = () => {
+    paintTagChips(chipBox, all, {
+      search: filterText,
+      onPick: (n) => { markTagUsed(n); input.value = n; filterText = ''; setArmed(true); render(); },
+    });
+    requestAnimationFrame(updateFade);
+  };
 
-  bar.append(input, datalist, hint, count, save, cancel);
+  input.addEventListener('input', () => {
+    filterText = input.value.trim().toLowerCase();
+    setArmed(!!input.value.trim());
+    render();
+  });
 
   return {
     el: bar,
     open(tagNames) {
-      datalist.replaceChildren(...tagNames.map((n) => {
-        const o = document.createElement('option');
-        o.value = n;
-        return o;
-      }));
+      all = tagNames.slice();
       input.value = '';
+      filterText = '';
       setArmed(false);
       bar.hidden = false;
+      render();
       input.focus();
     },
     close() { bar.hidden = true; setArmed(false); },

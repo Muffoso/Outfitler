@@ -1,6 +1,6 @@
 import { initAuth, logout } from './auth.js';
 import {
-  api, jsonHeaders, starRow, tagChips, tagAddForm, spacer, wearSection,
+  api, jsonHeaders, starRow, tagChips, createTagAdder, spacer, wearSection,
   createTagFilter, createSortMenu, detailPhoto, uploadImageFile,
   ownerId, isVisiting, scoped, navHref, ratingBadgeText, ratingSummary, markTagUsed,
   initFriendsNav, attachPeek, createBulkTagBar,
@@ -409,11 +409,15 @@ function renderDetail() {
     await removeTag(o.id, tag);
     await loadTags();
   })));
-  body.append(tagAddForm(o.tags, (name) => mutateDetail(async () => {
-    markTagUsed(name);
-    await addTag(o.id, name);
-    await loadTags();
-  })));
+  const adder = createTagAdder({
+    onChoose: (name) => mutateDetail(async () => {
+      markTagUsed(name);
+      await addTag(o.id, name);
+      await loadTags();
+    }),
+  });
+  adder.setTags(state.tags.map((t) => t.name), o.tags);
+  body.append(adder.el);
 
   const notes = document.createElement('textarea');
   notes.className = 'notes';
