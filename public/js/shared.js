@@ -202,7 +202,7 @@ export function attachPeek(el, getUrl) {
 
 // --- bulk tag bar (assign one tag to many items) ---
 
-export function createBulkTagBar({ onSave, onCancel }) {
+export function createBulkTagBar({ onSave, onCancel, onArm }) {
   const bar = document.createElement('div');
   bar.className = 'bulk-bar';
   bar.hidden = true;
@@ -210,13 +210,18 @@ export function createBulkTagBar({ onSave, onCancel }) {
   const input = document.createElement('input');
   input.type = 'text';
   input.className = 'bulk-tag-input';
-  input.placeholder = 'Tagg att lägga till';
+  input.placeholder = 'Skriv en tagg…';
   input.setAttribute('list', 'bulkTagList');
   input.autocapitalize = 'none';
   input.autocomplete = 'off';
 
   const datalist = document.createElement('datalist');
   datalist.id = 'bulkTagList';
+
+  const hint = document.createElement('div');
+  hint.className = 'bulk-hint';
+  hint.textContent = 'Kryssa i de som ska få taggen nedan';
+  hint.hidden = true;
 
   const count = document.createElement('span');
   count.className = 'bulk-count';
@@ -236,7 +241,13 @@ export function createBulkTagBar({ onSave, onCancel }) {
   cancel.textContent = 'Avbryt';
   cancel.addEventListener('click', onCancel);
 
-  bar.append(input, datalist, count, save, cancel);
+  const setArmed = (armed) => {
+    hint.hidden = !armed;
+    if (onArm) onArm(armed);
+  };
+  input.addEventListener('input', () => setArmed(!!input.value.trim()));
+
+  bar.append(input, datalist, hint, count, save, cancel);
 
   return {
     el: bar,
@@ -247,9 +258,11 @@ export function createBulkTagBar({ onSave, onCancel }) {
         return o;
       }));
       input.value = '';
+      setArmed(false);
       bar.hidden = false;
+      input.focus();
     },
-    close() { bar.hidden = true; },
+    close() { bar.hidden = true; setArmed(false); },
     setCount(n) { count.textContent = `${n} ${n === 1 ? 'vald' : 'valda'}`; },
   };
 }

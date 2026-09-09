@@ -134,14 +134,23 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   margin-bottom: 14px; padding: 10px; background: var(--surface-2);
   border: 1px solid var(--border); border-radius: var(--radius); }
 .bulk-tag-input { flex: 1 1 160px; min-width: 0; font-size: 13px; padding: 6px 10px; }
+.bulk-hint { flex-basis: 100%; font-size: 13px; color: var(--text-strong); }
 .bulk-count { font-size: 13px; color: var(--text-muted); }
 .grid.bulk .tile, .grid.bulk .outfit-tile { cursor: pointer; }
 .grid.bulk .outfit-tile { position: relative; }
-.tile.bulk-selected, .outfit-tile.bulk-selected { outline: 2px solid var(--accent); outline-offset: -2px; }
-.tile.bulk-selected::after, .outfit-tile.bulk-selected::after {
-  content: '✓'; position: absolute; top: 6px; right: 6px; z-index: 3;
-  width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
-  border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 13px; }
+.grid.bulk .tile.bulk-selected, .grid.bulk .outfit-tile.bulk-selected {
+  outline: 2px solid var(--accent); outline-offset: -2px; }
+
+/* a check-ring on every card once a tag has been typed */
+.grid.bulk-armed .tile::after, .grid.bulk-armed .outfit-tile::after {
+  content: ''; position: absolute; top: 6px; right: 6px; z-index: 3;
+  width: 24px; height: 24px; border-radius: 50%;
+  border: 2px solid #fff; background: rgba(0, 0, 0, .3);
+  box-shadow: 0 0 0 1px rgba(0, 0, 0, .25);
+  display: flex; align-items: center; justify-content: center;
+  color: #fff; font-size: 14px; font-weight: 700; }
+.grid.bulk-armed .tile.bulk-selected::after, .grid.bulk-armed .outfit-tile.bulk-selected::after {
+  content: '✓'; background: var(--accent); border-color: #fff; }
 
 /* press-and-hold image preview (a top-layer <dialog>) */
 dialog.image-peek { border: none; border-radius: 0; box-shadow: none; padding: 16px; margin: 0;

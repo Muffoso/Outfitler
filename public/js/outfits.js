@@ -50,9 +50,13 @@ detail.addEventListener('click', (e) => { if (e.target === detail) detail.close(
 // ---- bulk tagging ----
 
 const bulkBar = createBulkTagBar({
+  onArm: (armed) => grid.classList.toggle('bulk-armed', armed),
   onSave: async (name) => {
     const ids = [...bulkSelected];
-    if (ids.length === 0) { exitBulk(); return; }
+    if (ids.length === 0) {
+      alert('Kryssa i minst en outfit först.');
+      return;
+    }
     try {
       const { count } = await api(scoped('/api/outfits/bulk-tag'), {
         method: 'POST', headers: jsonHeaders(), body: JSON.stringify({ name, ids }),
@@ -82,6 +86,7 @@ function exitBulk() {
   bulkSelected.clear();
   bulkBar.close();
   bulkBtn.hidden = false;
+  grid.classList.remove('bulk-armed');
   renderGrid();
 }
 
