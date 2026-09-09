@@ -59,6 +59,10 @@ const ratingSchema = z.object({
 });
 
 const tagBodySchema = z.object({ name: tagName });
+const bulkTagSchema = z.object({
+  name: tagName,
+  ids: z.array(z.string().uuid()).min(1).max(500),
+});
 
 router.get('/', validateQuery(listQuerySchema), async (req, res) => {
   try {
@@ -77,6 +81,19 @@ router.post('/', validateBody(createSchema), async (req, res) => {
   } catch (err) {
     console.error('Create garment error:', err);
     res.status(500).json({ error: 'Failed to create garment' });
+  }
+});
+
+// Apply one tag to many garments.
+router.post('/bulk-tag', validateBody(bulkTagSchema), async (req, res) => {
+  try {
+    const count = await garmentService.bulkAddTag(
+      pool, req.scope, req.validatedData.name, req.validatedData.ids
+    );
+    res.json({ count });
+  } catch (err) {
+    console.error('Bulk tag garments error:', err);
+    res.status(500).json({ error: 'Failed to tag garments' });
   }
 });
 

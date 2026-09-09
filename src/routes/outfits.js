@@ -58,6 +58,10 @@ const wearSchema = z.object({
 
 const ratingSchema = z.object({ value: z.number().int().min(1).max(10).nullable() });
 const tagBodySchema = z.object({ name: tagName });
+const bulkTagSchema = z.object({
+  name: tagName,
+  ids: z.array(z.string().uuid()).min(1).max(500),
+});
 
 const handleGarmentError = (res, err, fallback) => {
   if (err.code === 'GARMENT_NOT_FOUND') {
@@ -83,6 +87,19 @@ router.post('/', validateBody(createSchema), async (req, res) => {
     res.status(201).json({ outfit });
   } catch (err) {
     handleGarmentError(res, err, 'Failed to create outfit');
+  }
+});
+
+// Apply one tag to many outfits.
+router.post('/bulk-tag', validateBody(bulkTagSchema), async (req, res) => {
+  try {
+    const count = await outfitService.bulkAddTag(
+      pool, req.scope, req.validatedData.name, req.validatedData.ids
+    );
+    res.json({ count });
+  } catch (err) {
+    console.error('Bulk tag outfits error:', err);
+    res.status(500).json({ error: 'Failed to tag outfits' });
   }
 });
 

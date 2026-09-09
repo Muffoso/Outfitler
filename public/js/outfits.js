@@ -3,7 +3,7 @@ import {
   api, jsonHeaders, starRow, tagChips, tagAddForm, spacer, wearSection,
   createTagFilter, createSortMenu, detailPhoto, uploadImageFile,
   ownerId, isVisiting, scoped, navHref, ratingBadgeText, ratingSummary, markTagUsed,
-  initFriendsNav,
+  initFriendsNav, attachPeek, createBulkTagBar,
 } from './shared.js';
 
 await initAuth();
@@ -16,10 +16,13 @@ const empty = document.getElementById('empty');
 const detail = document.getElementById('detail');
 const filterRating = document.getElementById('filterRating');
 const newBtn = document.getElementById('newBtn');
+const bulkBtn = document.getElementById('bulkBtn');
 
 const MAX_RATING = 10;
 
 const state = { outfits: [], garmentsById: new Map(), tags: [] };
+let bulkMode = false;
+const bulkSelected = new Set();
 const tagFilter = createTagFilter(document.getElementById('tagFilter'), 'outfits', loadOutfits);
 const sortMenu = createSortMenu(document.getElementById('sortBy'), loadOutfits);
 
@@ -43,6 +46,44 @@ document.getElementById('logoutBtn').addEventListener('click', () => logout());
 newBtn.addEventListener('click', createOutfit);
 filterRating.addEventListener('change', loadOutfits);
 detail.addEventListener('click', (e) => { if (e.target === detail) detail.close(); });
+
+// ---- bulk tagging ----
+
+const bulkBar = createBulkTagBar({
+  onSave: async (name) => {
+    const ids = [...bulkSelected];
+    if (ids.length === 0) { exitBulk(); return; }
+    try {
+      const { count } = await api(scoped('/api/outfits/bulk-tag'), {
+        method: 'POST', headers: jsonHeaders(), body: JSON.stringify({ name, ids }),
+      });
+      markTagUsed(name);
+      exitBulk();
+      await refresh();
+      alert(`Taggen "${name}" lades på ${count} outfits.`);
+    } catch (err) {
+      alert(err.message);
+    }
+  },
+  onCancel: () => exitBulk(),
+});
+document.querySelector('.toolbar').append(bulkBar.el);
+bulkBtn.addEventListener('click', () => {
+  bulkMode = true;
+  bulkSelected.clear();
+  bulkBar.open(state.tags.map((t) => t.name));
+  bulkBar.setCount(0);
+  bulkBtn.hidden = true;
+  renderGrid();
+});
+
+function exitBulk() {
+  bulkMode = false;
+  bulkSelected.clear();
+  bulkBar.close();
+  bulkBtn.hidden = false;
+  renderGrid();
+}
 
 async function setupBanner() {
   const banner = document.getElementById('visitBanner');
@@ -108,13 +149,23 @@ function thumbFor(garmentId) {
 
 function renderGrid() {
   empty.hidden = state.outfits.length > 0;
+  grid.classList.toggle('bulk', bulkMode);
   grid.replaceChildren(...state.outfits.map(tileEl));
 }
 
 function tileEl(o) {
   const tile = document.createElement('div');
-  tile.className = 'outfit-tile';
-  tile.addEventListener('click', () => openDetail(o.id));
+  tile.className = 'outfit-tile' + (bulkMode && bulkSelected.has(o.id) ? ' bulk-selected' : '');
+  tile.addEventListener('click', () => {
+    if (bulkMode) {
+      if (bulkSelected.has(o.id)) bulkSelected.delete(o.id);
+      else bulkSelected.add(o.id);
+      tile.classList.toggle('bulk-selected', bulkSelected.has(o.id));
+      bulkBar.setCount(bulkSelected.size);
+    } else {
+      openDetail(o.id);
+    }
+  });
 
   const cover = document.createElement('div');
   cover.className = 'outfit-cover';
@@ -393,6 +444,7 @@ function renderDetail() {
     } else {
       cell.append(document.createTextNode('–'));
     }
+    attachPeek(cell, () => g && g.image && g.image.card.url);
     if (editable) {
       const rm = document.createElement('button');
       rm.type = 'button';
@@ -439,6 +491,7 @@ function renderDetail() {
         } else {
           cell.append(document.createTextNode('Ingen bild'));
         }
+        attachPeek(cell, () => g.image && g.image.card.url);
         cell.addEventListener('click', () => mutateDetail(() =>
           patchOutfit(o.id, { garmentIds: [...o.garmentIds, g.id] })));
         picker.append(cell);

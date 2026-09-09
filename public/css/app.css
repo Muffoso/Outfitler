@@ -129,6 +129,27 @@ input:focus, select:focus, textarea:focus, button:focus-visible {
   border: 1px dashed var(--border); border-radius: var(--radius); }
 .muted { color: var(--text-muted); font-size: 13px; }
 
+/* bulk-tag mode */
+.bulk-bar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px;
+  margin-bottom: 14px; padding: 10px; background: var(--surface-2);
+  border: 1px solid var(--border); border-radius: var(--radius); }
+.bulk-tag-input { flex: 1 1 160px; min-width: 0; font-size: 13px; padding: 6px 10px; }
+.bulk-count { font-size: 13px; color: var(--text-muted); }
+.grid.bulk .tile, .grid.bulk .outfit-tile { cursor: pointer; }
+.grid.bulk .outfit-tile { position: relative; }
+.tile.bulk-selected, .outfit-tile.bulk-selected { outline: 2px solid var(--accent); outline-offset: -2px; }
+.tile.bulk-selected::after, .outfit-tile.bulk-selected::after {
+  content: '✓'; position: absolute; top: 6px; right: 6px; z-index: 3;
+  width: 20px; height: 20px; display: flex; align-items: center; justify-content: center;
+  border-radius: 50%; background: var(--accent); color: var(--on-accent); font-size: 13px; }
+
+/* press-and-hold image preview (a top-layer <dialog>) */
+dialog.image-peek { border: none; border-radius: 0; box-shadow: none; padding: 16px; margin: 0;
+  max-width: 100vw; max-height: 100vh; width: 100vw; height: 100dvh; background: rgba(0, 0, 0, .88); }
+dialog.image-peek[open] { display: flex; align-items: center; justify-content: center; }
+dialog.image-peek::backdrop { background: rgba(0, 0, 0, .5); }
+dialog.image-peek img { max-width: 94vw; max-height: 90dvh; object-fit: contain; border-radius: var(--radius); }
+
 /* rating stars */
 .stars { display: flex; flex-wrap: wrap; align-items: center; gap: 2px; }
 .star { background: none; border: none; padding: 0 1px; cursor: pointer;

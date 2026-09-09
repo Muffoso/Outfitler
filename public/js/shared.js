@@ -147,6 +147,113 @@ export function spacer() {
   return s;
 }
 
+// --- press-and-hold to view an image full-size ---
+
+let peekEl = null;
+
+function showImagePeek(url) {
+  if (!url) return;
+  if (!peekEl) {
+    // A <dialog> so it stacks in the top layer, above an open detail dialog.
+    peekEl = document.createElement('dialog');
+    peekEl.className = 'image-peek';
+    peekEl.append(document.createElement('img'));
+    const hide = () => { if (peekEl.open) peekEl.close(); };
+    peekEl.addEventListener('pointerup', hide);
+    peekEl.addEventListener('click', hide);
+    document.body.append(peekEl);
+  }
+  peekEl.querySelector('img').src = url;
+  if (!peekEl.open) peekEl.showModal();
+}
+
+// Long-press `el` -> show getUrl() big. Suppresses the click that follows.
+export function attachPeek(el, getUrl) {
+  let timer = null;
+  let sx = 0;
+  let sy = 0;
+  let fired = false;
+
+  const cancel = () => { if (timer) { clearTimeout(timer); timer = null; } };
+
+  el.addEventListener('pointerdown', (e) => {
+    if (e.pointerType === 'mouse' && e.button !== 0) return;
+    sx = e.clientX; sy = e.clientY; fired = false;
+    cancel();
+    timer = setTimeout(() => {
+      timer = null;
+      const url = getUrl();
+      if (!url) return;
+      fired = true;
+      showImagePeek(url);
+    }, 420);
+  });
+  el.addEventListener('pointermove', (e) => {
+    if (timer && (Math.abs(e.clientX - sx) > 10 || Math.abs(e.clientY - sy) > 10)) cancel();
+  });
+  el.addEventListener('pointerup', cancel);
+  el.addEventListener('pointerleave', cancel);
+  el.addEventListener('pointercancel', cancel);
+  el.addEventListener('contextmenu', (e) => { if (fired || timer) e.preventDefault(); });
+  el.addEventListener('click', (e) => {
+    if (fired) { e.preventDefault(); e.stopPropagation(); fired = false; }
+  }, true);
+}
+
+// --- bulk tag bar (assign one tag to many items) ---
+
+export function createBulkTagBar({ onSave, onCancel }) {
+  const bar = document.createElement('div');
+  bar.className = 'bulk-bar';
+  bar.hidden = true;
+
+  const input = document.createElement('input');
+  input.type = 'text';
+  input.className = 'bulk-tag-input';
+  input.placeholder = 'Tagg att lägga till';
+  input.setAttribute('list', 'bulkTagList');
+  input.autocapitalize = 'none';
+  input.autocomplete = 'off';
+
+  const datalist = document.createElement('datalist');
+  datalist.id = 'bulkTagList';
+
+  const count = document.createElement('span');
+  count.className = 'bulk-count';
+
+  const save = document.createElement('button');
+  save.type = 'button';
+  save.className = 'btn btn-primary btn-sm';
+  save.textContent = 'Spara';
+  save.addEventListener('click', () => {
+    const name = input.value.trim();
+    if (name) onSave(name);
+  });
+
+  const cancel = document.createElement('button');
+  cancel.type = 'button';
+  cancel.className = 'btn btn-secondary btn-sm';
+  cancel.textContent = 'Avbryt';
+  cancel.addEventListener('click', onCancel);
+
+  bar.append(input, datalist, count, save, cancel);
+
+  return {
+    el: bar,
+    open(tagNames) {
+      datalist.replaceChildren(...tagNames.map((n) => {
+        const o = document.createElement('option');
+        o.value = n;
+        return o;
+      }));
+      input.value = '';
+      bar.hidden = false;
+    },
+    close() { bar.hidden = true; },
+    setCount(n) { count.textContent = `${n} ${n === 1 ? 'vald' : 'valda'}`; },
+  };
+}
+
 export const IMAGE_ACCEPT = 'image/jpeg,image/png,image/webp,image/heic,image/heif';
 export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 

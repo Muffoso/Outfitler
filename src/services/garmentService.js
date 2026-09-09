@@ -216,6 +216,31 @@ const isVisible = async (db, { ownerId, viewerId }, id) => {
   return rows.length > 0;
 };
 
+// Add one tag to many garments at once. Returns how many were tagged.
+const bulkAddTag = async (pool, scope, name, ids) => {
+  const { ownerId, viewerId } = normalizeScope(scope);
+  if (!name || !ids || ids.length === 0) return 0;
+  return withTransaction(pool, async (client) => {
+    const { rows } = await client.query(
+      `SELECT id FROM garments
+       WHERE id = ANY($1::uuid[]) AND user_id = $2
+         AND (status = 'active' OR suggested_by = $3 OR $3 = $2)`,
+      [ids, ownerId, viewerId]
+    );
+    if (rows.length === 0) return 0;
+    const [tagId] = await tagService.resolveTagIds(client, ownerId, [name]);
+    if (!tagId) return 0;
+    const valid = rows.map((r) => r.id);
+    await client.query(
+      `INSERT INTO garment_tags (garment_id, tag_id, added_by)
+       SELECT unnest($1::uuid[]), $2, $3
+       ON CONFLICT (garment_id, tag_id) DO NOTHING`,
+      [valid, tagId, viewerId]
+    );
+    return valid.length;
+  });
+};
+
 // Add one tag to a visible garment (owner or visiting friend). Returns the
 // re-serialized garment, or null if not visible.
 const addTagById = async (pool, scope, id, name) => {
@@ -340,6 +365,6 @@ const remove = async (pool, scope, id) => {
 
 module.exports = {
   list, listByIds, getRow, getById, create, update, setRatingById,
-  addTagById, removeTagById, acceptSuggestion, ignoreSuggestion, listSuggestions,
+  addTagById, removeTagById, bulkAddTag, acceptSuggestion, ignoreSuggestion, listSuggestions,
   setImage, clearImage, addWear, remove,
 };
