@@ -208,3 +208,50 @@ mappkonventioner._
 ## 8. Öppna frågor
 
 _TODO._
+
+## 9. Vänner och delning
+
+Outfitler är i grunden enanvändar, men vänner kan bjudas in för att bidra.
+
+### Vänskap
+
+- Läggs till via **mailadress**. Inbjudan → mottagaren får en förfrågan och måste
+  **acceptera**. Efter accept är vänskapen **ömsesidig** – båda kan besöka varandras
+  garderober.
+- Mailadress utan konto: inbjudan sparas (`friend_invites`) och blir en väntande
+  förfrågan så fort adressen registrerar sig eller loggar in
+  (`friendService.consumeInvites`).
+- Inbjudningar skickas som mail via `emailService` (samma SMTP som lösenordsåterställning).
+- Tabeller: `friendships` (`requester_id`, `addressee_id`, `status pending|accepted`,
+  en rad per par via unikt uttrycksindex), `friend_invites`, vy `accepted_friends`.
+
+### Besök i en väns garderob
+
+- Frontend: `?owner=<vän-id>` på `index.html` / `outfits.html`. Sticky banner
+  "Du är på besök hos …". API: `?owner=` på GET-list/detalj + skriv-subrutter,
+  auktoriserat av `resolveOwner`-middleware (vänskaps-miss → 404).
+- Tjänstelagret skiljer `ownerId` (vems garderob) från `viewerId` (vem agerar) via
+  `scope`-objekt (`src/services/scope.js`). Skrivvägar som ändrar ägarens befintliga
+  data (anteckningar, arkivera, radera, bild, användning, ägarens outfits) är
+  endast-ägare.
+
+### Vad en besökare får göra
+
+- **Betygsätta** plagg och outfits. Betyg lagras per (sak, användare) i
+  `garment_ratings` / `outfit_ratings`. Varje sak exponerar `avgRating`,
+  `ratingCount` och en lista `{userId, displayName, value}`. Sortering på **eget**
+  betyg (`rating`) eller **snitt** (`avg_rating`).
+- **Lägga till taggar** – direkt på ägarens sak, i ägarens taggnamnrymd, med
+  `added_by`-attribution. Besökaren kan bara ta bort taggar hen själv lagt.
+- **Föreslå plagg** (med foto) och **föreslå outfits** – blir rader med
+  `status='suggested'` + `suggested_by`. Ägaren ser dem i en förslagsvy och
+  **accepterar** (→ `status='active'`) eller **ignorerar** (→ raderas). Att acceptera
+  en förslagsoutfit accepterar även dess ännu ej accepterade förslagsplagg (kaskad).
+
+### Datamodell-tillägg
+
+- `garments` / `outfits`: `status`, `suggested_by`.
+- `garment_tags` / `outfit_tags`: `added_by`, `created_at` (PK oförändrad).
+- `garment_ratings` / `outfit_ratings`: `(item_id, user_id) → value 1–10`.
+  `garments.rating` / `outfits.rating` behålls tills vidare som synkad spegel av
+  ägarens egen rad.

@@ -43,6 +43,8 @@ app.use(passport.session());
 // Routes
 app.use('/api/auth', require('./routes/auth'));
 app.use('/auth', require('./routes/oauth'));
+app.use('/api/me', app.locals.limiters.general, require('./routes/me'));
+app.use('/api/friends', app.locals.limiters.friends, require('./routes/friends'));
 app.use('/api/garments', app.locals.limiters.general, require('./routes/garments'));
 app.use('/api/outfits', app.locals.limiters.general, require('./routes/outfits'));
 app.use('/api/tags', app.locals.limiters.general, require('./routes/tags'));

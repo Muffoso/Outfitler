@@ -36,11 +36,16 @@
   <div class="palette-float"><div data-palette-picker></div></div>
   <div class="container">
     <h1>Create account</h1>
+    <p id="inviteNote" class="links" hidden>Du blev inbjuden till Outfitler av en vän. Skapa ett konto så kopplas ni ihop.</p>
     <div id="error" class="error"></div>
     <form id="registerForm">
       <div class="form-group">
         <label for="email">Email</label>
         <input type="email" id="email" name="email" required>
+      </div>
+      <div class="form-group">
+        <label for="displayName">Namn (valfritt)</label>
+        <input type="text" id="displayName" name="displayName" maxlength="50" autocomplete="name">
       </div>
       <div class="form-group">
         <label for="password">Password (min 8 characters)</label>

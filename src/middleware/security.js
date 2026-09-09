@@ -56,6 +56,7 @@ const setupSecurity = (app) => {
     auth: createLimiter(15 * 60 * 1000, 5, 'Too many login/register attempts, please try again later'),
     resetPassword: createLimiter(30 * 60 * 1000, 3, 'Too many password reset attempts, please try again later'),
     upload: createLimiter(15 * 60 * 1000, 40, 'Too many image uploads, please try again later'),
+    friends: createLimiter(15 * 60 * 1000, 30, 'Too many friend requests, please try again later'),
   };
 
   // 4. Body parser with size limit

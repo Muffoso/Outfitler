@@ -1,27 +1,32 @@
 const { hashPassword, verifyPassword } = require('./passwordService');
+const withTransaction = require('../db/withTransaction');
+const friendService = require('./friendService');
 
-const register = async (pool, email, password) => {
+const register = async (pool, email, password, displayName) => {
   const normalizedEmail = email.toLowerCase().trim();
-
-  const existingUser = await pool.query(
-    'SELECT id FROM users WHERE email = $1',
-    [normalizedEmail]
-  );
-
-  if (existingUser.rows.length > 0) {
-    const error = new Error('Email already registered');
-    error.code = 'EMAIL_TAKEN';
-    throw error;
-  }
-
   const passwordHash = await hashPassword(password);
 
-  const result = await pool.query(
-    'INSERT INTO users (email, password_hash) VALUES ($1, $2) RETURNING id, email, display_name',
-    [normalizedEmail, passwordHash]
-  );
+  return withTransaction(pool, async (client) => {
+    const existingUser = await client.query(
+      'SELECT id FROM users WHERE email = $1',
+      [normalizedEmail]
+    );
 
-  return result.rows[0];
+    if (existingUser.rows.length > 0) {
+      const error = new Error('Email already registered');
+      error.code = 'EMAIL_TAKEN';
+      throw error;
+    }
+
+    const result = await client.query(
+      'INSERT INTO users (email, password_hash, display_name) VALUES ($1, $2, $3) RETURNING id, email, display_name',
+      [normalizedEmail, passwordHash, displayName ? displayName.trim() : null]
+    );
+
+    await friendService.consumeInvites(client, result.rows[0].id, normalizedEmail);
+
+    return result.rows[0];
+  });
 };
 
 const login = async (pool, email, password) => {
@@ -45,6 +50,10 @@ const login = async (pool, email, password) => {
     throw error;
   }
 
+  // Pick up any friend invites sent to this address after registration.
+  await friendService.consumeInvites(pool, user.id, user.email)
+    .catch((err) => console.error('consumeInvites on login failed:', err));
+
   return {
     id: user.id,
     email: user.email,
@@ -65,34 +74,37 @@ const loginWithGoogle = async (pool, googleProfile) => {
   const normalizedEmail = googleEmail.toLowerCase().trim();
   const avatarUrl = photos && photos[0] ? photos[0].value : null;
 
-  let user = await pool.query(
+  let finalUser;
+
+  const byGoogleId = await pool.query(
     'SELECT id, email, display_name FROM users WHERE google_id = $1',
     [googleId]
   );
 
-  if (user.rows.length > 0) {
-    return user.rows[0];
-  }
-
-  user = await pool.query(
-    'SELECT id, email, display_name, google_id FROM users WHERE email = $1',
-    [normalizedEmail]
-  );
-
-  if (user.rows.length > 0) {
-    await pool.query(
-      'UPDATE users SET google_id = $1 WHERE id = $2',
-      [googleId, user.rows[0].id]
+  if (byGoogleId.rows.length > 0) {
+    finalUser = byGoogleId.rows[0];
+  } else {
+    const byEmail = await pool.query(
+      'SELECT id, email, display_name, google_id FROM users WHERE email = $1',
+      [normalizedEmail]
     );
-    return user.rows[0];
+
+    if (byEmail.rows.length > 0) {
+      await pool.query('UPDATE users SET google_id = $1 WHERE id = $2', [googleId, byEmail.rows[0].id]);
+      finalUser = byEmail.rows[0];
+    } else {
+      const newUser = await pool.query(
+        'INSERT INTO users (email, google_id, display_name, avatar_url, email_verified) VALUES ($1, $2, $3, $4, true) RETURNING id, email, display_name',
+        [normalizedEmail, googleId, displayName, avatarUrl]
+      );
+      finalUser = newUser.rows[0];
+    }
   }
 
-  const newUser = await pool.query(
-    'INSERT INTO users (email, google_id, display_name, avatar_url, email_verified) VALUES ($1, $2, $3, $4, true) RETURNING id, email, display_name',
-    [normalizedEmail, googleId, displayName, avatarUrl]
-  );
+  await friendService.consumeInvites(pool, finalUser.id, normalizedEmail)
+    .catch((err) => console.error('consumeInvites on Google login failed:', err));
 
-  return newUser.rows[0];
+  return finalUser;
 };
 
 const revokeAllUserTokens = async (pool, userId) => {

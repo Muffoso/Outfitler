@@ -21,6 +21,7 @@ const validateRequest = (schema) => (req, res, next) => {
 const registerSchema = z.object({
   email: z.string().email().max(254),
   password: z.string().min(8).max(128),
+  displayName: z.string().trim().min(1).max(50).optional(),
 });
 
 const loginSchema = z.object({
@@ -40,8 +41,8 @@ const resetPasswordSchema = z.object({
 // Register
 router.post('/register', validateRequest(registerSchema), async (req, res) => {
   try {
-    const { email, password } = req.validatedData;
-    const user = await authService.register(pool, email, password);
+    const { email, password, displayName } = req.validatedData;
+    const user = await authService.register(pool, email, password, displayName);
 
     const accessToken = tokenService.signAccessToken(user.id, user.email);
     const refreshToken = tokenService.generateRefreshToken();

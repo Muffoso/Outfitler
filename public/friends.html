@@ -1,0 +1,101 @@
+<!DOCTYPE html>
+<html lang="sv">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no">
+  <link rel="icon" href="/images/favicon-32-v2.png" sizes="32x32" type="image/png">
+  <link rel="icon" href="/images/favicon-16-v2.png" sizes="16x16" type="image/png">
+  <link rel="apple-touch-icon" href="/images/apple-touch-icon-v2.png">
+  <link rel="manifest" href="/site.webmanifest">
+  <meta name="theme-color" content="#FAFAF8">
+  <meta name="apple-mobile-web-app-title" content="Outfitler">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <title>Vänner – Outfitler</title>
+  <script src="/js/palette-boot.js"></script>
+  <script src="/js/no-zoom.js"></script>
+  <link rel="stylesheet" href="/css/tokens.css">
+  <link rel="stylesheet" href="/css/app.css">
+  <style>
+    .friends-section { margin-bottom: 26px; }
+    .friends-section h2 { font-size: 15px; color: var(--text-strong); margin-bottom: 10px; }
+    .friend-row { display: flex; align-items: center; gap: 10px; padding: 10px 0;
+      border-bottom: 1px solid var(--border); }
+    .friend-row:last-child { border-bottom: none; }
+    .friend-main { flex: 1; min-width: 0; }
+    .friend-name { color: var(--text-strong); font-size: 14px; }
+    .friend-sub { color: var(--text-muted); font-size: 12px;
+      white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+    .friend-actions { display: flex; gap: 6px; flex-shrink: 0; }
+    .friend-actions a.btn { text-decoration: none; display: inline-flex; align-items: center; }
+    .invite-form { display: flex; gap: 8px; flex-wrap: wrap; }
+    .invite-form input { flex: 1 1 200px; }
+    .friends-empty { color: var(--text-muted); font-size: 13px; }
+    .friends-msg { font-size: 13px; margin-top: 8px; }
+    .friends-msg.ok { color: var(--success); }
+    .friends-msg.err { color: var(--danger); }
+    .name-row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+    .name-row input { flex: 1 1 200px; }
+  </style>
+</head>
+<body>
+  <div class="topbar">
+    <div class="bar">
+      <h1>Outfitler</h1>
+      <nav class="nav">
+        <a href="/">Garderob</a>
+        <a href="/outfits.html">Outfits</a>
+        <a href="/friends.html" class="active">Vänner</a>
+      </nav>
+      <span class="spacer"></span>
+      <div data-palette-picker></div>
+      <button type="button" id="logoutBtn" class="btn btn-secondary btn-sm">Logga ut</button>
+    </div>
+  </div>
+
+  <div class="wrap">
+    <div class="friends-section">
+      <h2>Ditt namn</h2>
+      <p class="friends-empty">Visas för dina vänner när de besöker din garderob.</p>
+      <div class="name-row" style="margin-top:8px">
+        <input type="text" id="displayName" maxlength="50" placeholder="Ditt namn" autocomplete="name">
+        <button type="button" id="saveName" class="btn btn-secondary btn-sm">Spara</button>
+        <span id="nameMsg" class="friends-msg"></span>
+      </div>
+    </div>
+
+    <div class="friends-section">
+      <h2>Bjud in en vän</h2>
+      <form id="inviteForm" class="invite-form">
+        <input type="email" id="inviteEmail" placeholder="vännens mailadress" required
+          autocapitalize="none" autocomplete="off">
+        <button type="submit" class="btn btn-primary">Skicka inbjudan</button>
+      </form>
+      <p id="inviteMsg" class="friends-msg"></p>
+    </div>
+
+    <div class="friends-section" id="incomingSection" hidden>
+      <h2>Vill bli vän med dig</h2>
+      <div id="incoming"></div>
+    </div>
+
+    <div class="friends-section">
+      <h2>Vänner</h2>
+      <div id="friends"></div>
+    </div>
+
+    <div class="friends-section" id="outgoingSection" hidden>
+      <h2>Skickade förfrågningar</h2>
+      <div id="outgoing"></div>
+    </div>
+
+    <div class="friends-section" id="invitesSection" hidden>
+      <h2>Väntar på att gå med</h2>
+      <div id="invites"></div>
+    </div>
+  </div>
+
+  <script type="module" src="/js/theme.js"></script>
+  <script type="module" src="/js/friends.js"></script>
+</body>
+</html>
