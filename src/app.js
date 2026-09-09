@@ -48,6 +48,7 @@ app.use('/api/friends', app.locals.limiters.friends, require('./routes/friends')
 app.use('/api/garments', app.locals.limiters.general, require('./routes/garments'));
 app.use('/api/outfits', app.locals.limiters.general, require('./routes/outfits'));
 app.use('/api/tags', app.locals.limiters.general, require('./routes/tags'));
+app.use('/api/suggestions', app.locals.limiters.general, require('./routes/suggestions'));
 
 // Static files (last, so API routes take precedence). "/" serves public/index.html.
 app.use(express.static('public'));

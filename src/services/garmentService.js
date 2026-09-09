@@ -63,7 +63,9 @@ const selectById = async (db, viewerId, id) => {
 
 const list = async (pool, scope, filters = {}) => {
   const { ownerId, viewerId, isOwner } = normalizeScope(scope);
-  const where = ['garments.user_id = $2', "garments.status = 'active'"];
+  const where = ['garments.user_id = $2', isOwner
+    ? "garments.status = 'active'"
+    : "(garments.status = 'active' OR (garments.status = 'suggested' AND garments.suggested_by = $1))"];
   const params = [viewerId, ownerId];
 
   const archived = filters.archived || 'false';
@@ -201,6 +203,82 @@ const setRatingById = async (pool, scope, id, value) => {
   });
 };
 
+const isVisible = async (db, { ownerId, viewerId }, id) => {
+  const { rows } = await db.query(
+    `SELECT id FROM garments
+     WHERE id = $1 AND user_id = $2 AND (status = 'active' OR suggested_by = $3 OR $3 = $2)`,
+    [id, ownerId, viewerId]
+  );
+  return rows.length > 0;
+};
+
+// Add one tag to a visible garment (owner or visiting friend). Returns the
+// re-serialized garment, or null if not visible.
+const addTagById = async (pool, scope, id, name) => {
+  const { ownerId, viewerId, isOwner } = normalizeScope(scope);
+  return withTransaction(pool, async (client) => {
+    if (!(await isVisible(client, { ownerId, viewerId }, id))) return null;
+    await tagService.addTag(client, { kind: 'garment', itemId: id, ownerId, addedBy: viewerId }, name);
+    return (await hydrate(client, [await selectById(client, viewerId, id)], { isOwner, withRatings: true }))[0];
+  });
+};
+
+// Remove one tag. A visitor may only remove a link they added themselves.
+const removeTagById = async (pool, scope, id, name) => {
+  const { ownerId, viewerId, isOwner } = normalizeScope(scope);
+  return withTransaction(pool, async (client) => {
+    if (!(await isVisible(client, { ownerId, viewerId }, id))) return null;
+    await tagService.removeTag(client, { kind: 'garment', itemId: id, ownerId, viewerId, isOwner }, name);
+    return (await hydrate(client, [await selectById(client, viewerId, id)], { isOwner, withRatings: true }))[0];
+  });
+};
+
+// Owner accepts a friend's suggested garment: it becomes a normal garment.
+const acceptSuggestion = async (pool, ownerId, id) => {
+  const { rowCount } = await pool.query(
+    `UPDATE garments SET status = 'active', updated_at = NOW()
+     WHERE id = $1 AND user_id = $2 AND status = 'suggested'`,
+    [id, ownerId]
+  );
+  if (rowCount === 0) return null;
+  return getById(pool, ownerId, id);
+};
+
+// Owner ignores a suggested garment: delete it (and its image objects).
+const ignoreSuggestion = async (pool, ownerId, id) => {
+  const { rows } = await pool.query(
+    "SELECT image_key_prefix FROM garments WHERE id = $1 AND user_id = $2 AND status = 'suggested'",
+    [id, ownerId]
+  );
+  if (rows.length === 0) return false;
+  await pool.query('DELETE FROM garments WHERE id = $1 AND user_id = $2', [id, ownerId]);
+  if (rows[0].image_key_prefix) {
+    await imageStore.delPrefix(rows[0].image_key_prefix)
+      .catch((err) => console.error('R2 cleanup after suggestion ignore failed:', err));
+  }
+  return true;
+};
+
+// Suggested garments in the owner's wardrobe, with who suggested them.
+const listSuggestions = async (pool, ownerId) => {
+  const { rows } = await pool.query(
+    `SELECT ${GARMENT_SELECT},
+       (SELECT COALESCE(u.display_name, split_part(u.email, '@', 1))
+        FROM users u WHERE u.id = garments.suggested_by) AS suggested_by_name
+     FROM garments
+     WHERE garments.user_id = $1 AND garments.status = 'suggested'
+     ORDER BY garments.created_at DESC`,
+    [ownerId]
+  );
+  const serialized = await hydrate(pool, rows, { isOwner: true });
+  return serialized.map((g, i) => ({
+    ...g,
+    suggestedBy: rows[i].suggested_by
+      ? { userId: rows[i].suggested_by, displayName: rows[i].suggested_by_name }
+      : null,
+  }));
+};
+
 const setImage = async (pool, scope, id, img) => {
   const { ownerId, viewerId, isOwner } = normalizeScope(scope);
   const { rowCount } = await pool.query(
@@ -243,9 +321,11 @@ const addWear = async (pool, scope, id, wornOn) => {
 };
 
 const remove = async (pool, scope, id) => {
-  const { ownerId } = normalizeScope(scope);
+  const { ownerId, viewerId, isOwner } = normalizeScope(scope);
   const row = await getRow(pool, scope, id);
   if (!row) return false;
+  // A visitor may only withdraw their own not-yet-accepted suggestion.
+  if (!isOwner && !(row.status === 'suggested' && row.suggested_by === viewerId)) return false;
   await pool.query('DELETE FROM garments WHERE id = $1 AND user_id = $2', [id, ownerId]);
   if (row.image_key_prefix) {
     await imageStore.delPrefix(row.image_key_prefix)
@@ -256,5 +336,6 @@ const remove = async (pool, scope, id) => {
 
 module.exports = {
   list, listByIds, getRow, getById, create, update, setRatingById,
+  addTagById, removeTagById, acceptSuggestion, ignoreSuggestion, listSuggestions,
   setImage, clearImage, addWear, remove,
 };

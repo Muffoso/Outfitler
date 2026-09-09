@@ -15,6 +15,62 @@ export function jsonHeaders() {
   return { 'Content-Type': 'application/json' };
 }
 
+// --- visiting a friend's wardrobe: ?owner=<id> ---
+
+export function ownerId() {
+  try {
+    return new URLSearchParams(location.search).get('owner');
+  } catch {
+    return null;
+  }
+}
+
+export function isVisiting() {
+  return !!ownerId();
+}
+
+// Append owner=<id> to an API path when visiting a friend's wardrobe.
+export function scoped(path) {
+  const o = ownerId();
+  if (!o) return path;
+  return path + (path.includes('?') ? '&' : '?') + 'owner=' + encodeURIComponent(o);
+}
+
+// Keep the ?owner= param when navigating between the wardrobe and outfits pages.
+export function navHref(path) {
+  const o = ownerId();
+  return o ? path + '?owner=' + encodeURIComponent(o) : path;
+}
+
+// "★ 7,3 · 4" when more than one person rated, else "★ 6" for the viewer's own.
+export function ratingBadgeText(item) {
+  if (item.ratingCount > 1 && item.avgRating != null) {
+    return '★ ' + item.avgRating.toFixed(1).replace('.', ',') + ' · ' + item.ratingCount;
+  }
+  if (item.myRating != null) return '★ ' + item.myRating;
+  return null;
+}
+
+// A small block: "Snitt 7,3 av 4 betyg" + one line per rater.
+export function ratingSummary(item) {
+  const wrap = document.createElement('div');
+  wrap.className = 'rating-summary muted';
+  if (!item.ratingCount) {
+    wrap.textContent = 'Inga betyg än';
+    return wrap;
+  }
+  const head = document.createElement('div');
+  const avg = item.avgRating != null ? item.avgRating.toFixed(1).replace('.', ',') : '–';
+  head.textContent = `Snitt ${avg} av ${item.ratingCount} ${item.ratingCount === 1 ? 'betyg' : 'betyg'}`;
+  wrap.append(head);
+  for (const r of item.ratings || []) {
+    const line = document.createElement('div');
+    line.textContent = `${r.displayName}: ${r.value}`;
+    wrap.append(line);
+  }
+  return wrap;
+}
+
 // A row of `max` star buttons. onSet(n | null) fires on click; clicking the
 // current value (or "nollställ") clears the rating.
 export function starRow(value, max, onSet) {
@@ -97,20 +153,23 @@ export const MAX_IMAGE_BYTES = 20 * 1024 * 1024;
 // A clickable photo area (label wrapping a hidden file input). Shows image.card
 // when set, otherwise a prompt. onFile(File, labelEl) fires on selection.
 export function detailPhoto(image, onFile) {
-  const photo = document.createElement('label');
+  // Read-only when onFile is null: a plain box, no file input.
+  const photo = document.createElement(onFile ? 'label' : 'div');
   photo.className = 'detail-photo';
-  photo.title = image ? 'Byt bild' : 'Lägg till bild';
 
-  const file = document.createElement('input');
-  file.type = 'file';
-  file.accept = IMAGE_ACCEPT;
-  file.hidden = true;
-  file.addEventListener('change', () => {
-    const f = file.files[0];
-    file.value = '';
-    if (f) onFile(f, photo);
-  });
-  photo.append(file);
+  if (onFile) {
+    photo.title = image ? 'Byt bild' : 'Lägg till bild';
+    const file = document.createElement('input');
+    file.type = 'file';
+    file.accept = IMAGE_ACCEPT;
+    file.hidden = true;
+    file.addEventListener('change', () => {
+      const f = file.files[0];
+      file.value = '';
+      if (f) onFile(f, photo);
+    });
+    photo.append(file);
+  }
 
   if (image) {
     const img = document.createElement('img');
@@ -118,7 +177,7 @@ export function detailPhoto(image, onFile) {
     img.alt = '';
     photo.append(img);
   } else {
-    photo.append(document.createTextNode('Klicka för att lägga till bild'));
+    photo.append(document.createTextNode(onFile ? 'Klicka för att lägga till bild' : 'Ingen bild'));
   }
   return photo;
 }
@@ -131,7 +190,7 @@ export async function uploadImageFile(base, file, labelEl) {
   form.append('image', file);
   labelEl.classList.add('busy');
   try {
-    return await api(base + '/image', { method: 'PUT', body: form });
+    return await api(scoped(base + '/image'), { method: 'PUT', body: form });
   } catch (err) {
     labelEl.classList.remove('busy');
     throw err;
@@ -283,7 +342,8 @@ export function createTagFilter(host, noun, onChange) {
 
 const SORT_OPTIONS = [
   { value: 'created', label: 'Senast tillagd' },
-  { value: 'rating', label: 'Betyg' },
+  { value: 'rating', label: 'Mitt betyg' },
+  { value: 'avg_rating', label: 'Genomsnittligt betyg' },
   { value: 'last_worn', label: 'Senast använd' },
   { value: 'most_worn', label: 'Mest använd' },
 ];

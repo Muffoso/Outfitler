@@ -2,14 +2,19 @@ import { initAuth, logout } from './auth.js';
 import {
   api, jsonHeaders, starRow, tagChips, tagAddForm, spacer, wearSection,
   createTagFilter, createSortMenu, detailPhoto, uploadImageFile,
+  ownerId, isVisiting, scoped, navHref, ratingBadgeText, ratingSummary,
 } from './shared.js';
 
 await initAuth();
+
+const OWNER = ownerId();
+const VISITING = isVisiting();
 
 const grid = document.getElementById('grid');
 const empty = document.getElementById('empty');
 const detail = document.getElementById('detail');
 const filterRating = document.getElementById('filterRating');
+const newBtn = document.getElementById('newBtn');
 
 const MAX_RATING = 10;
 
@@ -24,14 +29,35 @@ for (let n = MAX_RATING; n >= 1; n--) {
   filterRating.append(opt);
 }
 
+if (VISITING) {
+  newBtn.textContent = '+ Föreslå outfit';
+  for (const a of document.querySelectorAll('.nav a')) {
+    if (a.getAttribute('href') === '/') a.href = navHref('/');
+    if (a.getAttribute('href') === '/outfits.html') a.href = navHref('/outfits.html');
+  }
+  setupBanner();
+}
+
 document.getElementById('logoutBtn').addEventListener('click', () => logout());
-document.getElementById('newBtn').addEventListener('click', createOutfit);
+newBtn.addEventListener('click', createOutfit);
 filterRating.addEventListener('change', loadOutfits);
 detail.addEventListener('click', (e) => { if (e.target === detail) detail.close(); });
 
+async function setupBanner() {
+  const banner = document.getElementById('visitBanner');
+  let name = 'en vän';
+  try {
+    const { friends } = await api('/api/friends');
+    const f = (friends || []).find((x) => x.userId === OWNER);
+    if (f) name = f.displayName;
+  } catch { /* generic */ }
+  banner.querySelector('.vb-text').textContent = `Du är på besök hos ${name}`;
+  banner.hidden = false;
+}
+
 async function loadGarments() {
   try {
-    const { garments } = await api('/api/garments?archived=all');
+    const { garments } = await api(scoped('/api/garments?archived=all'));
     state.garmentsById = new Map(garments.map((g) => [g.id, g]));
   } catch {
     /* surfaced via loadOutfits */
@@ -40,7 +66,7 @@ async function loadGarments() {
 
 async function loadTags() {
   try {
-    const { tags } = await api('/api/tags');
+    const { tags } = await api(scoped('/api/tags'));
     state.tags = tags;
   } catch {
     /* not critical */
@@ -56,7 +82,7 @@ async function loadOutfits() {
   params.set('sort', sortMenu.value());
   if (filterRating.value) params.set('rating', filterRating.value);
   try {
-    const { outfits } = await api('/api/outfits?' + params.toString());
+    const { outfits } = await api(scoped('/api/outfits?' + params.toString()));
     state.outfits = outfits;
     renderGrid();
     if (detail.open) refreshDetail();
@@ -92,7 +118,6 @@ function tileEl(o) {
   const cover = document.createElement('div');
   cover.className = 'outfit-cover';
   if (o.image) {
-    // the outfit's own image wins over the garment collage
     cover.style.gridTemplateColumns = '1fr';
     cover.style.gridTemplateRows = '1fr';
     const img = document.createElement('img');
@@ -120,11 +145,20 @@ function tileEl(o) {
       }
     }
   }
-  if (o.rating != null) {
+  const badgeText = ratingBadgeText(o);
+  if (badgeText) {
     const badge = document.createElement('span');
     badge.className = 'tile-badge';
-    badge.textContent = '★ ' + o.rating;
+    badge.textContent = badgeText;
     cover.append(badge);
+  }
+  if (o.status === 'suggested') {
+    const s = document.createElement('span');
+    s.className = 'tile-badge';
+    s.style.left = 'auto';
+    s.style.right = '6px';
+    s.textContent = 'Förslag';
+    cover.append(s);
   }
   tile.append(cover);
 
@@ -163,20 +197,47 @@ function currentOutfit() {
   return state.outfits.find((o) => o.id === detailId);
 }
 
+function canEdit(o) {
+  return !VISITING || o.status === 'suggested';
+}
+
 async function patchOutfit(id, patch) {
-  const { outfit } = await api('/api/outfits/' + id, {
+  const { outfit } = await api(scoped('/api/outfits/' + id), {
     method: 'PATCH', headers: jsonHeaders(), body: JSON.stringify(patch),
   });
   replaceInState(outfit);
   return outfit;
 }
 
+async function setRating(id, value) {
+  const { outfit } = await api(scoped('/api/outfits/' + id + '/rating'), {
+    method: 'PUT', headers: jsonHeaders(), body: JSON.stringify({ value }),
+  });
+  replaceInState(outfit);
+  return outfit;
+}
+
+async function addTag(id, name) {
+  const { outfit } = await api(scoped('/api/outfits/' + id + '/tags'), {
+    method: 'POST', headers: jsonHeaders(), body: JSON.stringify({ name }),
+  });
+  replaceInState(outfit);
+  return outfit;
+}
+
+async function removeTag(id, name) {
+  const { outfit } = await api(scoped('/api/outfits/' + id + '/tags/' + encodeURIComponent(name)), {
+    method: 'DELETE',
+  });
+  replaceInState(outfit);
+  return outfit;
+}
+
 async function recordWear(id, date) {
-  const { outfit } = await api('/api/outfits/' + id + '/wear', {
+  const { outfit } = await api(scoped('/api/outfits/' + id + '/wear'), {
     method: 'POST', headers: jsonHeaders(), body: JSON.stringify({ date }),
   });
   replaceInState(outfit);
-  // wearing an outfit bumps its garments' counts too
   await loadGarments();
   return outfit;
 }
@@ -195,7 +256,7 @@ async function uploadImage(id, file, labelEl) {
 async function removeImage(id) {
   if (!confirm('Ta bort outfit-bilden?')) return;
   await mutateDetail(async () => {
-    const { outfit } = await api('/api/outfits/' + id + '/image', { method: 'DELETE' });
+    const { outfit } = await api(scoped('/api/outfits/' + id + '/image'), { method: 'DELETE' });
     replaceInState(outfit);
   });
 }
@@ -219,7 +280,8 @@ function renderDetail() {
   const o = currentOutfit();
   if (!o) return;
 
-  const photo = detailPhoto(o.image, (file, labelEl) => uploadImage(o.id, file, labelEl));
+  const editable = canEdit(o);
+  const photo = detailPhoto(o.image, editable ? (file, labelEl) => uploadImage(o.id, file, labelEl) : null);
 
   const body = document.createElement('div');
   body.className = 'detail-body';
@@ -227,7 +289,7 @@ function renderDetail() {
   const head = document.createElement('div');
   head.className = 'detail-head';
   const title = document.createElement('strong');
-  title.textContent = 'Outfit';
+  title.textContent = o.status === 'suggested' ? 'Förslag' : 'Outfit';
   const closeBtn = document.createElement('button');
   closeBtn.type = 'button';
   closeBtn.className = 'btn btn-secondary btn-sm';
@@ -236,55 +298,65 @@ function renderDetail() {
   head.append(title, spacer(), closeBtn);
   body.append(head);
 
-  const nameInput = document.createElement('input');
-  nameInput.type = 'text';
-  nameInput.className = 'name-input';
-  nameInput.value = o.name;
-  nameInput.maxLength = 100;
-  const commitName = async () => {
-    const cur = currentOutfit();
-    if (!cur) return;
-    const v = nameInput.value.trim();
-    if (!v || v === cur.name) { nameInput.value = cur.name; return; }
-    try {
-      await patchOutfit(cur.id, { name: v });
-      renderGrid();
-      renderDetail();
-    } catch (err) {
-      alert(err.message);
-      nameInput.value = cur.name;
-    }
-  };
-  nameInput.addEventListener('blur', commitName);
-  nameInput.addEventListener('keydown', (e) => {
-    if (e.key === 'Enter') { e.preventDefault(); commitName(); }
-  });
-  body.append(nameInput);
+  if (editable) {
+    const nameInput = document.createElement('input');
+    nameInput.type = 'text';
+    nameInput.className = 'name-input';
+    nameInput.value = o.name;
+    nameInput.maxLength = 100;
+    const commitName = async () => {
+      const cur = currentOutfit();
+      if (!cur) return;
+      const v = nameInput.value.trim();
+      if (!v || v === cur.name) { nameInput.value = cur.name; return; }
+      try {
+        await patchOutfit(cur.id, { name: v });
+        renderGrid();
+        renderDetail();
+      } catch (err) {
+        alert(err.message);
+        nameInput.value = cur.name;
+      }
+    };
+    nameInput.addEventListener('blur', commitName);
+    nameInput.addEventListener('keydown', (e) => {
+      if (e.key === 'Enter') { e.preventDefault(); commitName(); }
+    });
+    body.append(nameInput);
+  } else {
+    const nameEl = document.createElement('div');
+    nameEl.className = 'name-input';
+    nameEl.textContent = o.name;
+    body.append(nameEl);
+  }
 
-  body.append(starRow(o.rating, MAX_RATING, (value) =>
-    mutateDetail(() => patchOutfit(o.id, { rating: value }))));
+  body.append(starRow(o.myRating, MAX_RATING, (value) =>
+    mutateDetail(() => setRating(o.id, value))));
+  body.append(ratingSummary(o));
 
-  body.append(wearSection(o, (date) => mutateDetail(() => recordWear(o.id, date))));
+  if (!VISITING && o.status !== 'suggested') {
+    body.append(wearSection(o, (date) => mutateDetail(() => recordWear(o.id, date))));
+  }
 
-  body.append(tagChips(o.tags, (tag) =>
-    mutateDetail(() => patchOutfit(o.id, { tags: o.tags.filter((t) => t !== tag) }))));
-  body.append(tagAddForm(o.tags, (name) =>
-    mutateDetail(() => patchOutfit(o.id, { tags: [...o.tags, name] }))));
+  body.append(tagChips(o.tags, (tag) => mutateDetail(() => removeTag(o.id, tag))));
+  body.append(tagAddForm(o.tags, (name) => mutateDetail(() => addTag(o.id, name))));
 
-  const notes = document.createElement('textarea');
-  notes.className = 'notes';
-  notes.placeholder = 'Anteckningar…';
-  notes.value = o.notes || '';
-  notes.addEventListener('blur', async () => {
-    const value = notes.value.trim() || null;
-    if (value === (o.notes || null)) return;
-    try {
-      await patchOutfit(o.id, { notes: value });
-    } catch (err) {
-      alert(err.message);
-    }
-  });
-  body.append(notes);
+  if (!VISITING) {
+    const notes = document.createElement('textarea');
+    notes.className = 'notes';
+    notes.placeholder = 'Anteckningar…';
+    notes.value = o.notes || '';
+    notes.addEventListener('blur', async () => {
+      const value = notes.value.trim() || null;
+      if (value === (o.notes || null)) return;
+      try {
+        await patchOutfit(o.id, { notes: value });
+      } catch (err) {
+        alert(err.message);
+      }
+    });
+    body.append(notes);
+  }
 
   const gLabel = document.createElement('div');
   gLabel.className = 'section-label';
@@ -305,59 +377,63 @@ function renderDetail() {
     } else {
       cell.append(document.createTextNode('–'));
     }
-    const rm = document.createElement('button');
-    rm.type = 'button';
-    rm.className = 'rm';
-    rm.textContent = '×';
-    rm.title = 'Ta bort ur outfit';
-    rm.addEventListener('click', () => mutateDetail(() =>
-      patchOutfit(o.id, { garmentIds: o.garmentIds.filter((x) => x !== gid) })));
-    cell.append(rm);
+    if (editable) {
+      const rm = document.createElement('button');
+      rm.type = 'button';
+      rm.className = 'rm';
+      rm.textContent = '×';
+      rm.title = 'Ta bort ur outfit';
+      rm.addEventListener('click', () => mutateDetail(() =>
+        patchOutfit(o.id, { garmentIds: o.garmentIds.filter((x) => x !== gid) })));
+      cell.append(rm);
+    }
     gGrid.append(cell);
   }
   body.append(gGrid);
 
-  const addBtn = document.createElement('button');
-  addBtn.type = 'button';
-  addBtn.className = 'btn btn-secondary btn-sm';
-  addBtn.textContent = pickerOpen ? 'Stäng plaggväljaren' : '+ Lägg till plagg';
-  addBtn.addEventListener('click', () => { pickerOpen = !pickerOpen; renderDetail(); });
-  body.append(addBtn);
+  if (editable) {
+    const addBtn = document.createElement('button');
+    addBtn.type = 'button';
+    addBtn.className = 'btn btn-secondary btn-sm';
+    addBtn.textContent = pickerOpen ? 'Stäng plaggväljaren' : '+ Lägg till plagg';
+    addBtn.addEventListener('click', () => { pickerOpen = !pickerOpen; renderDetail(); });
+    body.append(addBtn);
 
-  if (pickerOpen) {
-    const picker = document.createElement('div');
-    picker.className = 'picker';
-    const inOutfit = new Set(o.garmentIds);
-    const candidates = [...state.garmentsById.values()]
-      .filter((g) => !inOutfit.has(g.id) && !g.archived);
-    if (candidates.length === 0) {
-      const p = document.createElement('div');
-      p.className = 'muted';
-      p.textContent = 'Inga fler plagg att lägga till.';
-      picker.append(p);
-    }
-    for (const g of candidates) {
-      const cell = document.createElement('div');
-      cell.className = 'og';
-      cell.title = 'Lägg till';
-      if (g.image) {
-        const img = document.createElement('img');
-        img.src = g.image.thumb.url;
-        img.alt = '';
-        cell.append(img);
-      } else {
-        cell.append(document.createTextNode('Ingen bild'));
+    if (pickerOpen) {
+      const picker = document.createElement('div');
+      picker.className = 'picker';
+      const inOutfit = new Set(o.garmentIds);
+      const candidates = [...state.garmentsById.values()]
+        .filter((g) => !inOutfit.has(g.id) && !g.archived);
+      if (candidates.length === 0) {
+        const p = document.createElement('div');
+        p.className = 'muted';
+        p.textContent = 'Inga fler plagg att lägga till.';
+        picker.append(p);
       }
-      cell.addEventListener('click', () => mutateDetail(() =>
-        patchOutfit(o.id, { garmentIds: [...o.garmentIds, g.id] })));
-      picker.append(cell);
+      for (const g of candidates) {
+        const cell = document.createElement('div');
+        cell.className = 'og';
+        cell.title = 'Lägg till';
+        if (g.image) {
+          const img = document.createElement('img');
+          img.src = g.image.thumb.url;
+          img.alt = '';
+          cell.append(img);
+        } else {
+          cell.append(document.createTextNode('Ingen bild'));
+        }
+        cell.addEventListener('click', () => mutateDetail(() =>
+          patchOutfit(o.id, { garmentIds: [...o.garmentIds, g.id] })));
+        picker.append(cell);
+      }
+      body.append(picker);
     }
-    body.append(picker);
   }
 
   const actions = document.createElement('div');
   actions.className = 'detail-actions';
-  if (o.image) {
+  if (o.image && editable) {
     const rmImg = document.createElement('button');
     rmImg.type = 'button';
     rmImg.className = 'btn btn-secondary btn-sm';
@@ -365,21 +441,24 @@ function renderDetail() {
     rmImg.addEventListener('click', () => removeImage(o.id));
     actions.append(rmImg);
   }
-  const del = document.createElement('button');
-  del.type = 'button';
-  del.className = 'btn btn-danger btn-sm';
-  del.textContent = 'Ta bort outfit';
-  del.addEventListener('click', () => removeOutfit(o.id));
-  actions.append(del);
-  body.append(actions);
+  if (!VISITING || o.status === 'suggested') {
+    const del = document.createElement('button');
+    del.type = 'button';
+    del.className = 'btn btn-danger btn-sm';
+    del.textContent = VISITING ? 'Dra tillbaka' : 'Ta bort outfit';
+    del.addEventListener('click', () => removeOutfit(o.id));
+    actions.append(del);
+  }
+  if (actions.children.length) body.append(actions);
 
   detail.replaceChildren(photo, body);
 }
 
 async function removeOutfit(id) {
-  if (!confirm('Ta bort outfiten?')) return;
+  const q = VISITING ? 'Dra tillbaka förslaget?' : 'Ta bort outfiten?';
+  if (!confirm(q)) return;
   try {
-    await api('/api/outfits/' + id, { method: 'DELETE' });
+    await api(scoped('/api/outfits/' + id), { method: 'DELETE' });
     detail.close();
     await loadOutfits();
   } catch (err) {
@@ -389,8 +468,9 @@ async function removeOutfit(id) {
 
 async function createOutfit() {
   try {
-    const { outfit } = await api('/api/outfits', {
-      method: 'POST', headers: jsonHeaders(), body: JSON.stringify({ name: 'Ny outfit' }),
+    const { outfit } = await api(scoped('/api/outfits'), {
+      method: 'POST', headers: jsonHeaders(),
+      body: JSON.stringify({ name: VISITING ? 'Nytt förslag' : 'Ny outfit' }),
     });
     await loadOutfits();
     openDetail(outfit.id);

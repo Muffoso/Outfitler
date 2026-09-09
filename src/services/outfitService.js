@@ -112,7 +112,9 @@ const replaceGarments = async (db, outfitId, garmentIds) => {
 
 const list = async (pool, scope, filters = {}) => {
   const { ownerId, viewerId, isOwner } = normalizeScope(scope);
-  const where = ['outfits.user_id = $2', "outfits.status = 'active'"];
+  const where = ['outfits.user_id = $2', isOwner
+    ? "outfits.status = 'active'"
+    : "(outfits.status = 'active' OR (outfits.status = 'suggested' AND outfits.suggested_by = $1))"];
   const params = [viewerId, ownerId];
 
   if (filters.rating) {
@@ -266,6 +268,96 @@ const recordWear = async (pool, scope, id, wornOn) =>
     return outfit;
   });
 
+const isVisible = async (db, { ownerId, viewerId }, id) => {
+  const { rows } = await db.query(
+    `SELECT id FROM outfits
+     WHERE id = $1 AND user_id = $2 AND (status = 'active' OR suggested_by = $3 OR $3 = $2)`,
+    [id, ownerId, viewerId]
+  );
+  return rows.length > 0;
+};
+
+const reserialize = async (client, { ownerId, viewerId, isOwner }, id) => {
+  const outfit = (await withMeta(client, [await selectById(client, viewerId, id)], { isOwner, withRatings: true }))[0];
+  outfit.garments = await garmentService.listByIds(client, { ownerId, viewerId }, outfit.garmentIds);
+  return outfit;
+};
+
+const addTagById = async (pool, scope, id, name) => {
+  const s = normalizeScope(scope);
+  return withTransaction(pool, async (client) => {
+    if (!(await isVisible(client, s, id))) return null;
+    await tagService.addTag(client, { kind: 'outfit', itemId: id, ownerId: s.ownerId, addedBy: s.viewerId }, name);
+    return reserialize(client, s, id);
+  });
+};
+
+const removeTagById = async (pool, scope, id, name) => {
+  const s = normalizeScope(scope);
+  return withTransaction(pool, async (client) => {
+    if (!(await isVisible(client, s, id))) return null;
+    await tagService.removeTag(client, {
+      kind: 'outfit', itemId: id, ownerId: s.ownerId, viewerId: s.viewerId, isOwner: s.isOwner,
+    }, name);
+    return reserialize(client, s, id);
+  });
+};
+
+// Owner accepts a suggested outfit; its still-suggested garments (from the same
+// suggester) are accepted too.
+const acceptSuggestion = async (pool, ownerId, id) =>
+  withTransaction(pool, async (client) => {
+    const { rows } = await client.query(
+      "SELECT suggested_by FROM outfits WHERE id = $1 AND user_id = $2 AND status = 'suggested'",
+      [id, ownerId]
+    );
+    if (rows.length === 0) return null;
+    const suggestedBy = rows[0].suggested_by;
+    await client.query(
+      `UPDATE garments SET status = 'active', updated_at = NOW()
+       WHERE id IN (SELECT garment_id FROM outfit_garments WHERE outfit_id = $1)
+         AND user_id = $2 AND status = 'suggested'
+         AND ($3::uuid IS NULL OR suggested_by = $3)`,
+      [id, ownerId, suggestedBy]
+    );
+    await client.query("UPDATE outfits SET status = 'active', updated_at = NOW() WHERE id = $1", [id]);
+    return reserialize(client, { ownerId, viewerId: ownerId, isOwner: true }, id);
+  });
+
+const ignoreSuggestion = async (pool, ownerId, id) => {
+  const { rows } = await pool.query(
+    "SELECT image_key_prefix FROM outfits WHERE id = $1 AND user_id = $2 AND status = 'suggested'",
+    [id, ownerId]
+  );
+  if (rows.length === 0) return false;
+  await pool.query('DELETE FROM outfits WHERE id = $1 AND user_id = $2', [id, ownerId]);
+  if (rows[0].image_key_prefix) {
+    await imageStore.delPrefix(rows[0].image_key_prefix)
+      .catch((err) => console.error('R2 cleanup after suggestion ignore failed:', err));
+  }
+  return true;
+};
+
+const listSuggestions = async (pool, ownerId) => {
+  const { rows } = await pool.query(
+    `SELECT ${OUTFIT_SELECT},
+       (SELECT COALESCE(u.display_name, split_part(u.email, '@', 1))
+        FROM users u WHERE u.id = outfits.suggested_by) AS suggested_by_name
+     FROM outfits
+     WHERE outfits.user_id = $1 AND outfits.status = 'suggested'
+     ORDER BY outfits.created_at DESC`,
+    [ownerId]
+  );
+  const serialized = await withMeta(pool, rows, { isOwner: true });
+  for (let i = 0; i < serialized.length; i += 1) {
+    serialized[i].garments = await garmentService.listByIds(pool, ownerId, serialized[i].garmentIds);
+    serialized[i].suggestedBy = rows[i].suggested_by
+      ? { userId: rows[i].suggested_by, displayName: rows[i].suggested_by_name }
+      : null;
+  }
+  return serialized;
+};
+
 const setImage = async (pool, scope, id, img) => {
   const { ownerId, viewerId, isOwner } = normalizeScope(scope);
   const { rowCount } = await pool.query(
@@ -302,9 +394,10 @@ const getRow = async (pool, scope, id) => {
 };
 
 const remove = async (pool, scope, id) => {
-  const { ownerId } = normalizeScope(scope);
+  const { ownerId, viewerId, isOwner } = normalizeScope(scope);
   const row = await getRow(pool, scope, id);
   if (!row) return false;
+  if (!isOwner && !(row.status === 'suggested' && row.suggested_by === viewerId)) return false;
   await pool.query('DELETE FROM outfits WHERE id = $1 AND user_id = $2', [id, ownerId]);
   if (row.image_key_prefix) {
     await imageStore.delPrefix(row.image_key_prefix)
@@ -315,5 +408,6 @@ const remove = async (pool, scope, id) => {
 
 module.exports = {
   list, getById, getRow, create, update, setRatingById, recordWear,
+  addTagById, removeTagById, acceptSuggestion, ignoreSuggestion, listSuggestions,
   assertGarmentsUsable, setImage, clearImage, remove,
 };
