@@ -179,21 +179,30 @@ function tileEl(o) {
 // ---- detail dialog ----
 
 let detailId = null;
+let detailFull = null;
 let pickerOpen = false;
 
-function openDetail(id) {
+async function openDetail(id) {
   detailId = id;
+  detailFull = null;
   pickerOpen = false;
   renderDetail();
   if (!detail.open) detail.showModal();
+  try {
+    const { outfit } = await api(scoped('/api/outfits/' + id));
+    if (detailId === id) { detailFull = outfit; replaceInState(outfit); renderDetail(); }
+  } catch {
+    /* keep the list row */
+  }
 }
 
 function refreshDetail() {
-  if (detailId && state.outfits.some((o) => o.id === detailId)) renderDetail();
+  if (detailId && (detailFull || state.outfits.some((o) => o.id === detailId))) renderDetail();
   else detail.close();
 }
 
 function currentOutfit() {
+  if (detailFull && detailFull.id === detailId) return detailFull;
   return state.outfits.find((o) => o.id === detailId);
 }
 
@@ -264,6 +273,7 @@ async function removeImage(id) {
 function replaceInState(outfit) {
   const i = state.outfits.findIndex((o) => o.id === outfit.id);
   if (i >= 0) state.outfits[i] = outfit;
+  if (detailFull && detailFull.id === outfit.id) detailFull = outfit;
 }
 
 async function mutateDetail(fn) {

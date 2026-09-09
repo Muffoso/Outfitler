@@ -185,6 +185,7 @@ async function recordWear(id, date) {
 function replaceInState(garment) {
   const i = state.garments.findIndex((g) => g.id === garment.id);
   if (i >= 0) state.garments[i] = garment;
+  if (detailFull && detailFull.id === garment.id) detailFull = garment;
 }
 
 async function removeGarment(id) {
@@ -203,19 +204,28 @@ async function removeGarment(id) {
 // ---- detail dialog ----
 
 let detailId = null;
+let detailFull = null;
 
-function openDetail(id) {
+async function openDetail(id) {
   detailId = id;
+  detailFull = null;
   renderDetail();
   if (!detail.open) detail.showModal();
+  try {
+    const { garment } = await api(scoped('/api/garments/' + id));
+    if (detailId === id) { detailFull = garment; replaceInState(garment); renderDetail(); }
+  } catch {
+    /* keep the list row */
+  }
 }
 
 function refreshDetail() {
-  if (detailId && state.garments.some((g) => g.id === detailId)) renderDetail();
+  if (detailId && (detailFull || state.garments.some((g) => g.id === detailId))) renderDetail();
   else detail.close();
 }
 
 function currentGarment() {
+  if (detailFull && detailFull.id === detailId) return detailFull;
   return state.garments.find((g) => g.id === detailId);
 }
 
