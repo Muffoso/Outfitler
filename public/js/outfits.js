@@ -38,12 +38,22 @@ if (VISITING) {
 
 document.getElementById('logoutBtn').addEventListener('click', () => logout());
 newBtn.addEventListener('click', createOutfit);
-filterBtn.addEventListener('click', () => {
-  tagFilterHost.hidden = !tagFilterHost.hidden;
-  filterBtn.classList.toggle('on', !tagFilterHost.hidden);
-  if (!tagFilterHost.hidden) tagFilter.refresh();
-});
 detail.addEventListener('click', (e) => { if (e.target === detail) detail.close(); });
+
+// The filter panel and the bulk-tag bar are mutually exclusive; each button
+// toggles its own panel and closes the other.
+function setPanel(target) {
+  const wantFilter = target === 'filter';
+  tagFilterHost.hidden = !wantFilter;
+  filterBtn.classList.toggle('on', wantFilter);
+  if (wantFilter) tagFilter.refresh();
+
+  if (target === 'bulk' && !bulkMode) enterBulk();
+  else if (target !== 'bulk' && bulkMode) exitBulk();
+}
+filterBtn.addEventListener('click', () =>
+  setPanel(filterBtn.classList.contains('on') ? null : 'filter'));
+bulkBtn.addEventListener('click', () => setPanel(bulkMode ? null : 'bulk'));
 
 function onFilterChange() {
   filterBtn.classList.toggle('has-filter', tagFilter.hasSelection());
@@ -75,15 +85,15 @@ const bulkBar = createBulkTagBar({
   onCancel: () => exitBulk(),
 });
 document.querySelector('.grid-toolbar').before(bulkBar.el);
-bulkBtn.addEventListener('click', () => {
-  if (bulkMode) { exitBulk(); return; }
+
+function enterBulk() {
   bulkMode = true;
   bulkSelected.clear();
   bulkBar.open(state.tags.map((t) => t.name));
   bulkBar.setCount(0);
   bulkBtn.classList.add('on');
   renderGrid();
-});
+}
 
 function exitBulk() {
   bulkMode = false;
@@ -104,6 +114,10 @@ async function setupBanner() {
   } catch { /* generic */ }
   banner.querySelector('.vb-text').textContent = `Du är på besök hos ${name}`;
   banner.hidden = false;
+  const syncTop = () =>
+    document.documentElement.style.setProperty('--toolbar-top', `${banner.offsetHeight}px`);
+  syncTop();
+  window.addEventListener('resize', syncTop);
 }
 
 async function loadGarments() {

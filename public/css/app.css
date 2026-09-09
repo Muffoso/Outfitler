@@ -44,8 +44,11 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 /* per-rater breakdown in the detail dialog */
 .rating-summary { display: flex; flex-direction: column; gap: 2px; font-size: 12px; }
 
-/* toolbar + filters */
-.toolbar { display: flex; flex-direction: column; gap: 12px; margin-bottom: 14px; }
+/* toolbar + filters — stays pinned to the top while the grid scrolls */
+.toolbar { position: sticky; top: var(--toolbar-top, 0); z-index: 30;
+  display: flex; flex-direction: column; gap: 10px;
+  background: var(--bg); padding-bottom: 10px; margin-bottom: 8px;
+  box-shadow: 0 8px 12px -9px rgba(0, 0, 0, .28); }
 .toolbar-row { display: flex; flex-wrap: wrap; align-items: center; gap: 10px; }
 .toolbar-row .spacer { flex: 1; }
 .filter-label { font-size: 13px; color: var(--text-muted); }
@@ -54,7 +57,9 @@ body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-
 .grid-toolbar { display: flex; align-items: center; justify-content: flex-end; gap: 12px; }
 .grid-toolbar > label { margin-right: auto; }
 
-/* toolbar icon buttons (tagga flera / filtrera) */
+/* toolbar icon buttons (nytt plagg / tagga flera / filtrera) */
+.btn-icon { padding: 6px 10px; display: inline-flex; align-items: center; }
+.btn svg, .icon-btn svg { display: block; }
 .icon-btn.on, .icon-btn.on:hover { background: var(--accent); color: var(--on-accent); border-color: var(--accent); }
 .icon-btn.has-filter:not(.on) { border-color: var(--accent); color: var(--accent); }
 
